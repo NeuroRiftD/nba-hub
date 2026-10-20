@@ -50,10 +50,25 @@ const teamsList = async () => {
   return j.sports[0].leagues[0].teams.map(x => team(x.team)).sort((a, b) => a.name.localeCompare(b.name));
 };
 
+const injStatus = x => typeof x === "string" ? x : (x && (x.description || x.name)) || "Injured";
+async function injuries() {
+  const j = await get(`${E}/injuries`, 6e5), m = {};
+  for (const t of j.injuries || []) for (const i of t.injuries || []) {
+    const id = i.athlete && i.athlete.id;
+    if (!id) continue;
+    const d = i.details || {};
+    m[id] = { status: injStatus(i.status), note: [d.type, d.detail, d.side].filter(Boolean).join(" · "), comment: i.shortComment || "", ret: d.returnDate || "" };
+  }
+  return m;
+}
+
 async function roster(id) {
-  const j = await get(`${E}/teams/${id}/roster`, 36e5);
+  const [j, inj] = await Promise.all([get(`${E}/teams/${id}/roster`, 36e5), injuries().catch(() => ({}))]);
   const a = (j.athletes || []).flatMap(x => x.items || [x]);
-  return a.map(p => ({ id: p.id, name: p.displayName, jersey: p.jersey || "", pos: (p.position && p.position.abbreviation) || "", height: p.displayHeight || "", age: p.age || "" }));
+  return a.map(p => ({
+    id: p.id, name: p.displayName, jersey: p.jersey || "", pos: (p.position && p.position.abbreviation) || "", height: p.displayHeight || "", age: p.age || "",
+    inj: inj[p.id] || (p.injuries && p.injuries[0] ? { status: injStatus(p.injuries[0].status), note: "", comment: "", ret: "" } : null)
+  }));
 }
 
 async function schedule(id) {
