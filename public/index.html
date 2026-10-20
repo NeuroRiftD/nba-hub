@@ -1,0 +1,128 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Hardwood – NBA Hub</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef1f6;--fg:#0f1623;--mut:#5d6677;--card:#fff;--bd:#d9dee8;--acc:#1d7cf2;--live:#e5364b;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070d1c;--fg:#f2f5fb;--mut:#8f9ab0;--card:#101a30;--bd:#1f2c48;--acc:#2f8cff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#070d1c;--fg:#f2f5fb;--mut:#8f9ab0;--card:#101a30;--bd:#1f2c48;--acc:#2f8cff;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,select{font:inherit;color:inherit}a{color:inherit;text-decoration:none}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5}
+.wrap{max-width:760px;margin:0 auto;padding:0 12px}
+h1{font-size:26px;margin:10px 0 6px;letter-spacing:.06em;font-weight:800}h1 span{color:var(--acc)}
+.tabs{display:flex;gap:18px;overflow-x:auto;border-bottom:1px solid var(--bd)}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:8px 0;color:var(--mut);font-size:15px;cursor:pointer}
+.tabs button.on{color:var(--fg);font-weight:700;border-color:var(--acc)}
+main{padding-bottom:84px}
+.hero{margin:12px 0;border-radius:14px;padding:26px 18px;color:#fff;background:linear-gradient(120deg,#0b2a6b,#5b1f8a 55%,#c8532a)}
+.hero b{display:block;font-size:30px;line-height:1.05;font-weight:800;text-transform:uppercase}.hero span{display:block;margin-top:8px;opacity:.9}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px}.sec h2{font-size:19px;margin:0}.sec a{color:var(--acc);cursor:pointer;font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}
+.hs{display:flex;gap:8px;overflow-x:auto}.hs .card{min-width:150px;max-width:210px;cursor:pointer}.hs img.n{width:100%;height:80px;object-fit:cover;border-radius:8px;margin-bottom:6px}
+.live{background:var(--live);color:#fff;font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px}
+.sc3{display:flex;justify-content:space-around;text-align:center;margin-top:8px}.sc3 b{font-size:24px;display:block}.sc3 small{color:var(--mut)}
+.my{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:linear-gradient(120deg,#2a1466,#4b1d8f);color:#fff;border:0}
+.my .nx{flex:1;min-width:140px;border-left:1px solid rgba(255,255,255,.25);padding-left:12px}
+.my select{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:5px 8px;color:#fff}.my option{color:#000}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:5px;width:100%}.qa button{background:rgba(255,255,255,.14);border:0;border-radius:8px;color:#fff;padding:7px;cursor:pointer}
+.note{border:1px dashed var(--bd);border-radius:12px;padding:12px;color:var(--mut);margin:8px 0}
+.tg{display:grid;grid-template-columns:112px 1fr;gap:8px;align-items:start}.gl{display:flex;flex-direction:column;gap:6px}
+.gi{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer}.gi.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.gi .r{display:flex;justify-content:space-around;align-items:center}.gi .t{font-size:12px;margin-top:4px}
+.dn{display:flex;align-items:center;gap:6px}.dn button{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 11px;cursor:pointer}.dn b{text-align:center;background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:13px}
+.pn{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;min-width:0}
+.ph{display:flex;justify-content:space-around;align-items:center;text-align:center}.ph b{font-size:24px}.ph small{display:block;color:var(--mut);font-size:11px}
+.st{display:flex;border-bottom:1px solid var(--bd);margin:8px 0}.st button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:7px 0;color:var(--mut);cursor:pointer}.st button.on{color:var(--fg);border-color:var(--acc);font-weight:600}
+.seg{display:flex;margin-bottom:8px;border:1px solid var(--bd);border-radius:6px;overflow:hidden}.seg button{flex:1;border:0;background:none;padding:6px;cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:7px 5px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+tr.p{cursor:pointer}tr.p td:first-child{color:var(--acc);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}.grid .card{display:flex;gap:8px;align-items:center;cursor:pointer}.grid .on{border-color:var(--acc)}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0}.row .tm{margin-left:auto;color:var(--mut)}
+.chip{border:1px solid var(--bd);background:var(--card);padding:6px 14px;border-radius:99px;cursor:pointer;margin-right:6px}.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+h3{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.bn{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));z-index:6}
+.bn button{flex:1;background:none;border:0;color:var(--mut);font-size:11px;cursor:pointer}.bn button span{display:block;font-size:19px}.bn button.on{color:var(--acc)}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:20}.ov.show{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:760px;max-height:88%;overflow:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.x{float:right;border:0;background:var(--card);border-radius:99px;width:32px;height:32px;cursor:pointer}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.tiles div{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:9px;text-align:center}.tiles b{display:block;font-size:20px}.tiles span{font-size:11px;color:var(--mut)}
+.hd{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--card)}
+th.s{cursor:pointer;user-select:none}th.s.on{color:var(--acc);font-weight:700}.bn button{font-size:10px}.lg2{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}.lg2 h4{margin:0 0 6px;display:flex;justify-content:space-between;cursor:pointer}
+</style></head><body>
+<header><div class="wrap"><h1>HARD<span>WOOD</span></h1><div class="tabs" id="tabs"></div></div></header>
+<main class="wrap" id="main"></main>
+<nav class="bn" id="bn"></nav>
+<div class="ov" id="m"><div class="sheet" id="s"></div></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"']/g,c=>"&#"+c.charCodeAt(0)+";");
+const api=async p=>{const r=await fetch(p);if(!r.ok){let m=String(r.status);try{m+=": "+(await r.json()).error}catch(e){}throw new Error(m)}return r.json()};
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+let tab="Home",date=iso(new Date()),games=[],sel=null,box=null,side="away",sub="box",teams=[],stand=[],news=[],tnews=[],sched=[],nf="all",err="";
+let bsort=null,bdir=-1,boxErr="",pstats=null,ploading=false,perr="",psort="PTS",pdir=-1,sview="players";
+let fav=null;try{fav=JSON.parse(localStorage.getItem("fav"))}catch(e){}
+const L=(t,s=34)=>t?`<img src="${esc(t.logo)}" alt="${esc(t.abbr)}" width="${s}" height="${s}" style="object-fit:contain" onerror="this.replaceWith(document.createTextNode(this.alt))">`:"";
+const lbl=d=>new Date(d+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+const tm=d=>new Date(d).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+const ago=d=>{const h=(Date.now()-new Date(d))/36e5;return h<1?Math.max(1,Math.round(h*60))+"m ago":h<24?Math.round(h)+"h ago":Math.round(h/24)+"d ago"};
+const safe=u=>u&&u.startsWith("https://")?esc(u):"#";
+const TABS=[["Home","⌂"],["Scores","🏀"],["Schedule","📅"],["Teams","👥"],["Stats","📊"],["Leaders","🏆"],["News","📰"]];
+const go=t=>{tab=t;draw();scrollTo(0,0);if(t=="Stats"||t=="Leaders")loadPlayers()};
+const gm=()=>games.find(g=>g.id==sel);
+
+async function loadGames(){const old=JSON.stringify(games)+err;try{games=await api("/api/scoreboard?date="+date);err=""}catch(e){games=[];err="Couldn't load games ("+e.message+"). Retrying automatically."}
+if(!gm())sel=(games.find(g=>g.state=="in")||games[0]||{}).id||null;await loadBox(old!=JSON.stringify(games)+err)}
+async function loadBox(f){if(!sel){box=null;return draw()}const old=JSON.stringify(box);try{box=await api("/api/game/"+sel);boxErr=""}catch(e){box=null;boxErr=e.message;f=true}if(f||old!=JSON.stringify(box))draw()}
+function pick(id){sel=id;box=null;boxErr="";draw();loadBox();const p=$("#gp");if(p)p.scrollIntoView({behavior:"smooth",block:"start"})}
+function shift(n){const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+n);date=iso(d);sel=null;box=null;loadGames()}
+async function loadFav(){if(!fav)return;try{sched=await api("/api/schedule/"+fav.id)}catch(e){sched=[]}try{tnews=await api("/api/news?team="+fav.id)}catch(e){tnews=[]}draw()}
+function setFav(id){fav=teams.find(t=>t.id==id)||null;try{localStorage.setItem("fav",JSON.stringify(fav))}catch(e){}sched=[];tnews=[];draw();loadFav()}
+
+function hero(){const lv=games.filter(g=>g.state=="in").length;return`<div class="hero"><b>${lv?lv+" live now":games.length?games.length+" games":"No games"}<br>${esc(lbl(date))}</b><span>${games.length?"Tap any game for the box score":"Use the arrows to find the next game day"}</span></div>`}
+function liveRow(){const v=games.filter(g=>g.state=="in");return`<div class="sec"><h2>Live Now</h2><a onclick="go('Scores')">See All ›</a></div>`+(v.length?`<div class="hs">${v.map(g=>`<div class="card" onclick="pick('${g.id}')"><span class="live">LIVE</span> <small>${esc(g.detail)}</small><div class="sc3"><div>${L(g.away)}<b>${g.away.score}</b><small>${esc(g.away.abbr)}</small></div><div>${L(g.home)}<b>${g.home.score}</b><small>${esc(g.home.abbr)}</small></div></div></div>`).join("")}</div>`:`<div class="note">No games are live right now.</div>`)}
+function rec(){for(const c of stand){const i=c.rows.findIndex(r=>r.id==fav.id);if(i>=0)return`${c.rows[i].w}-${c.rows[i].l} | #${i+1} in ${esc(c.conf)}`}return""}
+function my(){const opts=`<option value="">Pick your team</option>`+teams.map(t=>`<option value="${esc(t.id)}" ${fav&&fav.id==t.id?"selected":""}>${esc(t.name)}</option>`).join("");
+if(!fav)return`<div class="sec"><h2>★ My Team</h2></div><div class="card my"><div>Follow a team for its schedule and news.</div><select onchange="setFav(this.value)">${opts}</select></div>`;
+const n=sched.find(g=>g.state!="post"),at=n&&n.away.id==fav.id;
+return`<div class="sec"><h2>★ My Team</h2><a onclick="go('Teams')">See Team ›</a></div><div class="card my"><div style="display:flex;gap:10px;align-items:center">${L(fav,54)}<div><b style="font-size:18px">${esc(fav.name)}</b><div style="opacity:.8">${rec()}</div></div></div><div class="nx"><small style="opacity:.8">Next game</small><div><b>${n?(at?"@ "+esc(n.home.abbr):"vs "+esc(n.away.abbr)):"—"}</b></div><small>${n?esc(lbl(n.date.slice(0,10)))+" · "+tm(n.date):""}</small></div><select onchange="setFav(this.value)">${opts}</select><div class="qa"><button onclick="roster('${fav.id}')">Roster</button><button onclick="go('Schedule')">Schedule</button><button onclick="go('Stats')">Stats</button><button onclick="nf='team';go('News')">Team News</button></div></div>`}
+function newsCards(a){return a.length?`<div class="hs">${a.slice(0,10).map(x=>`<a class="card" href="${safe(x.link)}" target="_blank" rel="noopener">${x.img?`<img class="n" src="${safe(x.img)}" alt="" loading="lazy">`:""}<b>${esc(x.title)}</b><div style="color:var(--mut);font-size:12px;margin-top:4px">${ago(x.time)}</div></a>`).join("")}</div>`:`<div class="note">No headlines available right now.</div>`}
+function gi(g){const pre=g.state=="pre";return`<div class="gi ${g.id==sel?"on":""}" onclick="pick('${g.id}')"><div class="r">${L(g.away,30)}${L(g.home,30)}</div><div class="t">${pre?tm(g.date):`<b>${g.away.score} - ${g.home.score}</b><br><span style="color:${g.state=="in"?"var(--live)":"var(--mut)"}">${esc(g.detail)}</span>`}</div></div>`}
+function panel(){const g=gm();if(!g)return`<div id="gp" class="pn note">No games on this date.</div>`;
+const pre=g.state=="pre",head=`<div class="ph"><div>${L(g.away,44)}<small>${esc(g.away.abbr)} ${esc(g.away.record)}</small></div><div><b>${pre?"–":g.away.score}</b></div><div>${g.state=="in"?`<span class="live">LIVE</span><small>${esc(g.detail)}</small>`:`<small>${pre?esc(lbl(g.date.slice(0,10)))+"<br>"+tm(g.date)+(g.tv?"<br>"+esc(g.tv):""):esc(g.detail)}</small>`}</div><div><b>${pre?"–":g.home.score}</b></div><div>${L(g.home,44)}<small>${esc(g.home.abbr)} ${esc(g.home.record)}</small></div></div>`;
+if(pre)return`<div id="gp" class="pn">${head}<div class="note">The box score appears at tip-off.</div></div>`;
+if(!box)return`<div id="gp" class="pn">${head}${boxErr?`<div class="note">Couldn't load the box score (${esc(boxErr)}). <button class="chip" onclick="pick('${g.id}')">Retry</button></div>`:`<div class="note">Loading box score…</div>`}</div>`;
+const t=box.teams.find(x=>x.id==(side=="home"?g.home.id:g.away.id));
+const body=sub=="box"?`<div class="seg"><button class="${side=="away"?"on":""}" onclick="side='away';draw()">${esc(g.away.name.split(" ").pop())}</button><button class="${side=="home"?"on":""}" onclick="side='home';draw()">${esc(g.home.name.split(" ").pop())}</button></div>`+(t&&t.players.length?`<div class="tw"><table><tr><th class="s" onclick="bsortBy(null)">PLAYER</th>${BC.map(k=>`<th class="s ${bsort==k?"on":""}" onclick="bsortBy('${k}')">${k}${bsort==k?(bdir<0?" ▼":" ▲"):""}</th>`).join("")}</tr>${bsorted(t.players).map(p=>`<tr class="p" onclick="pl('${p.id}')"><td>${esc(p.name)}</td>${BC.map(k=>`<td${bsort==k?' style="font-weight:700"':""}>${esc(p.stats[k]??"–")}</td>`).join("")}</tr>`).join("")}</table></div><div style="color:var(--mut);font-size:11px;margin-top:6px">Tap a column heading to sort, or a player for their stats.</div>`:`<div class="note">No box score data yet.</div>`):`<div style="max-height:380px;overflow:auto">${box.plays.length?box.plays.map(p=>`<div class="row" style="align-items:flex-start"><small style="color:var(--mut);min-width:54px">Q${p.q||""} ${esc(p.clock||"")}</small><span>${esc(p.text)}</span><b class="tm" style="font-size:12px">${esc(p.score)}</b></div>`).join(""):`<div class="note">No play-by-play yet.</div>`}</div>`;
+return`<div id="gp" class="pn">${head}<div class="st"><button class="${sub=="box"?"on":""}" onclick="sub='box';draw()">Box Score</button><button class="${sub=="pbp"?"on":""}" onclick="sub='pbp';draw()">Play-by-Play</button></div>${body}</div>`}
+function gamesSec(){return`<div class="sec"><h2>Games</h2><div class="dn"><button onclick="shift(-1)">‹</button><b>${esc(lbl(date))}</b><button onclick="shift(1)">›</button></div></div>${err?`<div class="note">${esc(err)}</div>`:""}<div class="tg"><div class="gl">${games.map(gi).join("")||`<div class="note" style="margin:0">No games</div>`}</div>${panel()}</div>`}
+function schedule(){if(!fav)return`<div class="note">Pick My Team on the Teams tab to see its schedule.</div>`;return`<h3>${esc(fav.name)} schedule</h3>`+(sched.length?sched.map(g=>{const at=g.away.id==fav.id,o=at?g.home:g.away;return`<div class="card row">${L(o,30)}<b>${at?"@":"vs"} ${esc(o.abbr)}</b><span class="tm">${esc(lbl(g.date.slice(0,10)))} · ${g.state=="post"?esc(g.detail||"Final"):tm(g.date)}</span></div>`}).join(""):`<div class="note">Loading schedule…</div>`)}
+function teamsTab(){return`<div class="note">Tap a team to make it My Team. Tap Roster to see its players.</div><div class="grid">${teams.map(t=>`<div class="card ${fav&&fav.id==t.id?"on":""}" onclick="setFav('${t.id}')">${L(t,34)}<div style="flex:1"><b>${esc(t.abbr)}</b><div style="color:var(--mut);font-size:11px">${esc(t.name)}</div></div><button class="chip" style="margin:0;padding:3px 9px" onclick="event.stopPropagation();roster('${t.id}')">Roster</button></div>`).join("")}</div>`}
+const BC=["MIN","PTS","REB","AST","STL","BLK","FG","3PT"];
+const bv=(p,k)=>{const n=parseFloat(p.stats[k]);return isNaN(n)?-1e9:n};
+const bsorted=a=>bsort?[...a].sort((x,y)=>(bv(x,bsort)-bv(y,bsort))*bdir):a;
+function bsortBy(k){if(k==null)bsort=null;else if(bsort==k)bdir*=-1;else{bsort=k;bdir=-1}draw()}
+async function loadPlayers(){if(pstats||ploading)return;ploading=true;perr="";draw();try{pstats=await api("/api/players")}catch(e){perr=e.message||"error"}ploading=false;draw()}
+const PN={PTS:"Points",REB:"Rebounds",AST:"Assists",STL:"Steals",BLK:"Blocks","FG%":"Field goal %","3P%":"3-point %","FT%":"Free throw %",MIN:"Minutes"};
+const pgate=()=>ploading?`<div class="note">Loading player stats…</div>`:perr?`<div class="note">Couldn't load player stats (${esc(perr)}). <button class="chip" onclick="pstats=null;loadPlayers()">Retry</button></div>`:!pstats||!pstats.rows.length?`<div class="note">No player stats yet. They appear once teams have played games this season.</div>`:"";
+function sortBy(k){if(psort==k)pdir*=-1;else{psort=k;pdir=k=="name"||k=="team"?1:-1}draw()}
+function viewStat(k){psort=k;pdir=-1;sview="players";go("Stats")}
+function standHtml(){return stand.length?stand.map(c=>`<h3>${esc(c.conf)}</h3><div class="tw"><table><tr><th>TEAM</th><th>W</th><th>L</th><th>PCT</th></tr>${c.rows.map((r,i)=>`<tr><td>${i+1}. ${esc(r.abbr)} <span style="color:var(--mut)">${esc(r.name)}</span></td><td>${r.w}</td><td>${r.l}</td><td>${r.pct.toFixed(3).replace(/^0/,"")}</td></tr>`).join("")}</table></div>`).join(""):`<div class="note">Standings unavailable right now.</div>`}
+function statsTab(){const sv=`<div style="margin:12px 0"><button class="chip ${sview=="players"?"on":""}" onclick="sview='players';draw()">Players</button><button class="chip ${sview=="stand"?"on":""}" onclick="sview='stand';draw()">Standings</button></div>`;
+if(sview=="stand")return sv+standHtml();const g=pgate();if(g)return sv+g;
+const val=r=>psort=="name"?r.name:psort=="team"?r.team:r.v[psort],rows=[...pstats.rows].sort((a,b)=>{const x=val(a),y=val(b);return typeof x=="string"?x.localeCompare(y)*pdir:((x??-1e9)-(y??-1e9))*pdir});
+const th=(k,l)=>`<th class="s ${psort==k?"on":""}" onclick="sortBy('${k}')">${l}${psort==k?(pdir<0?" ▼":" ▲"):""}</th>`;
+return sv+`<div style="color:var(--mut);font-size:12px;margin-bottom:6px">Per-game averages. Tap a column heading to sort.</div><div class="tw"><table><tr>${th("name","PLAYER")}${th("team","TEAM")}${pstats.cols.map(c=>th(c,c)).join("")}</tr>${rows.map((r,i)=>`<tr class="p" data-n="${esc(r.name)}" onclick="pl('${esc(r.id)}',this.dataset.n)"><td>${i+1}. ${esc(r.name)}</td><td>${esc(r.team)}</td>${pstats.cols.map(c=>`<td${psort==c?' style="font-weight:700"':""}>${r.v[c]??"–"}</td>`).join("")}</tr>`).join("")}</table></div>`}
+function leadersTab(){const g=pgate();if(g)return g;return`<div style="color:var(--mut);font-size:12px;margin:12px 0 6px">Per-game league leaders. Tap a category title to rank everyone.</div><div class="lg2">${Object.keys(PN).filter(k=>pstats.cols.includes(k)).map(k=>{const top=[...pstats.rows].filter(r=>r.v[k]!=null).sort((a,b)=>b.v[k]-a.v[k]).slice(0,5);return`<div class="card"><h4 onclick="viewStat('${k}')"><b>${PN[k]}</b><span style="color:var(--acc)">All ›</span></h4>${top.map((r,i)=>`<div class="row" style="cursor:pointer" data-n="${esc(r.name)}" onclick="pl('${esc(r.id)}',this.dataset.n)"><span style="color:var(--mut);width:14px">${i+1}</span><span style="flex:1">${esc(r.name)} <small style="color:var(--mut)">${esc(r.team)}</small></span><b>${r.v[k]}</b></div>`).join("")}</div>`}).join("")}</div>`}
+function newsTab(){const a=nf=="team"&&fav?tnews:news;return`<div style="margin:12px 0"><button class="chip ${nf=="all"?"on":""}" onclick="nf='all';draw()">All news</button><button class="chip ${nf=="team"?"on":""}" onclick="nf='team';draw()">${fav?esc(fav.name):"My Team"}</button></div>`+(a.length?a.map(x=>`<a class="card row" style="display:flex;margin:8px 0" href="${safe(x.link)}" target="_blank" rel="noopener">${x.img?`<img src="${safe(x.img)}" alt="" width="88" height="60" style="object-fit:cover;border-radius:8px" loading="lazy">`:""}<div><b>${esc(x.title)}</b><div style="color:var(--mut);font-size:12px">${ago(x.time)}</div></div></a>`).join(""):`<div class="note">${nf=="team"&&!fav?"Pick My Team on the Teams tab first.":"No headlines available right now."}</div>`)}
+function open(h){$("#s").innerHTML=`<button class="x" onclick="shut()">✕</button>`+h;$("#m").classList.add("show")}
+function shut(){$("#m").classList.remove("show")}
+$("#m").addEventListener("click",e=>{if(e.target.id=="m")shut()});
+async function roster(id){open(`<div class="note">Loading roster…</div>`);try{const r=await api("/api/roster/"+id),t=teams.find(x=>x.id==id);$("#s").innerHTML=`<button class="x" onclick="shut()">✕</button><b style="font-size:18px">${esc(t?t.name:"Roster")}</b><div class="tw"><table><tr><th>PLAYER</th><th>#</th><th>POS</th><th>HT</th><th>AGE</th></tr>${r.map(p=>`<tr class="p" onclick="pl('${p.id}')"><td>${esc(p.name)}</td><td>${esc(p.jersey)}</td><td>${esc(p.pos)}</td><td>${esc(p.height)}</td><td>${esc(p.age)}</td></tr>`).join("")}</table></div>`}catch(e){$("#s").innerHTML=`<button class="x" onclick="shut()">✕</button><div class="note">Couldn't load the roster.</div>`}}
+async function pl(id,nm){let p=null;for(const t of(box&&box.teams)||[]){p=t.players.find(x=>x.id==id)||p}
+const tile=(k,v)=>`<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`;
+open(`<div style="display:flex;gap:12px;align-items:center"><img class="hd" src="https://a.espncdn.com/i/headshots/nba/players/full/${esc(id)}.png" alt="" onerror="this.style.display='none'"><div><b style="font-size:19px">${p?esc(p.name):esc(nm||"Player")}</b><div style="color:var(--mut)">${p?esc(p.pos)+(p.jersey?" · #"+esc(p.jersey):""):""}</div></div></div>`+(p?`<h3>This game</h3><div class="tiles">${["PTS","REB","AST","STL","BLK","MIN","FG","3PT","FT"].map(k=>tile(k,p.stats[k]??"–")).join("")}</div>`:"")+`<h3>Season</h3><div id="sea" class="note">Loading…</div>`);
+try{const j=await api("/api/player/"+id);$("#sea").outerHTML=j.stats.length?`<div class="tiles">${j.labels.map((l,i)=>tile(l,j.stats[i]??"–")).join("")}</div>`:`<div class="note">No season stats available.</div>`}catch(e){const s=$("#sea");if(s)s.textContent="Season stats unavailable."}}
+function draw(){const nb=f=>TABS.map(([t,i])=>`<button class="${t==tab?"on":""}" onclick="go('${t}')">${f(i)}${t}</button>`).join("");$("#tabs").innerHTML=nb(()=>"");$("#bn").innerHTML=nb(i=>`<span>${i}</span>`);
+$("#main").innerHTML={Home:()=>hero()+liveRow()+my()+`<div class="sec"><h2>Top NBA News</h2><a onclick="go('News')">See All ›</a></div>`+newsCards(news)+gamesSec(),Scores:gamesSec,Schedule:schedule,Teams:teamsTab,Stats:statsTab,Leaders:leadersTab,News:newsTab}[tab]()}
+(async()=>{draw();await Promise.allSettled([api("/api/teams").then(r=>teams=r),api("/api/standings").then(r=>stand=r),api("/api/news").then(r=>news=r)]);draw();loadFav();loadGames();
+setInterval(()=>{if(!document.hidden&&!$("#m").classList.contains("show")&&(tab=="Home"||tab=="Scores"))loadGames()},20000)})();
+</script></body></html>
