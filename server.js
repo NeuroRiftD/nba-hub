@@ -110,7 +110,7 @@ async function players() {
   const pull = async q => (await Promise.allSettled(sorts.map(s => get(`${base}&isqualified=${q}&sort=${s}:desc`, 6e5)))).filter(r => r.status === "fulfilled").map(r => r.value);
   let res = await pull(true);
   if (!res.some(j => (j.athletes || []).length)) res = await pull(false); // early season: nobody is "qualified" yet
-  const COLS = ["GP", "MIN", "PTS", "REB", "AST", "STL", "BLK", "FG%", "3P%", "FT%"], seen = new Map();
+  const PREF = ["GP", "MIN", "PTS", "REB", "AST", "STL", "BLK", "FG%", "3P%", "FT%"], seen = new Map(), order = [], desc = {};
   for (const j of res) for (const a of j.athletes || []) {
     const id = a.athlete && a.athlete.id;
     if (!id || seen.has(id)) continue;
@@ -119,12 +119,23 @@ async function players() {
       const def = (j.categories || []).find(c => c.name === ac.name);
       if (!def) continue;
       const vals = ac.values || ac.totals || [];
-      (def.labels || []).forEach((l, i) => { if (COLS.includes(l) && !(l in v)) { const n = parseFloat(vals[i]); v[l] = isNaN(n) ? null : n; } });
+      (def.labels || []).forEach((l, i) => {
+        if (!l || l in v) return;
+        const n = parseFloat(vals[i]);
+        v[l] = isNaN(n) ? null : n;
+        if (!order.includes(l)) order.push(l);
+        if (def.descriptions && def.descriptions[i]) desc[l] = def.descriptions[i];
+      });
     }
+    // If the feed gave season totals instead of per-game numbers (minutes > 48 is impossible per game), convert.
+    if (v.GP && v.MIN > 48) for (const k of ["MIN", "PTS", "REB", "AST", "STL", "BLK"]) if (v[k] != null) { const T = v[k]; v[k] = Math.round(T / v.GP * 10) / 10; if (k !== "MIN") v["T" + k] = T; }
+    // Season totals = per-game average x games played (can be off by a few because averages are rounded).
+    [["PTS", "TPTS"], ["REB", "TREB"], ["AST", "TAST"], ["STL", "TSTL"], ["BLK", "TBLK"]].forEach(([k, t]) => { if (v[t] == null && v[k] != null && v.GP) v[t] = Math.round(v[k] * v.GP); });
     seen.set(id, { id, name: a.athlete.displayName, team: a.athlete.teamShortName || "", v });
   }
   const rows = [...seen.values()];
-  return { cols: COLS.filter(c => rows.some(r => r.v[c] != null)), rows };
+  const cols = [...PREF, ...order.filter(l => !PREF.includes(l)), "TPTS", "TREB", "TAST", "TSTL", "TBLK"].filter(c => rows.some(r => r.v[c] != null));
+  return { cols, rows, desc };
 }
 
 const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players() };
