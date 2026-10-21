@@ -15,7 +15,7 @@ No dependencies. Needs Node 18+.
 ## How it works
 - `server.js` fetches ESPN's public NBA JSON, reshapes it, caches it for 15s (live games) to 1 day (teams), and serves it at /api/*.
 - `public/index.html` calls those routes and refreshes live games every 20s.
-- Routes: /api/scoreboard?date=YYYY-MM-DD, /api/game/:id, /api/teams, /api/roster/:id, /api/schedule/:id, /api/standings, /api/news[?team=id], /api/player/:id
+- Routes: /api/scoreboard?date=YYYY-MM-DD, /api/live, /api/recent, /api/month?ym=YYYY-MM, /api/game/:id, /api/teams, /api/roster/:id, /api/schedule/:id, /api/standings, /api/news[?team=id], /api/injuries, /api/moves, /api/players, /api/player/:id
 
 ## Heads up
 - ESPN's endpoints are unofficial and can change without notice. If a section goes blank, check that route in the browser first.

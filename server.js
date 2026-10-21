@@ -3,6 +3,9 @@
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const cache = new Map();
+// ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
+const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
+const seasonLabel = y => `${y - 1}-${String(y).slice(2)}`;
 
 async function get(url, ttl) {
   const c = cache.get(url);
@@ -74,15 +77,15 @@ async function roster(id) {
 }
 
 async function schedule(id) {
-  const j = await get(`${E}/teams/${id}/schedule`, 36e5);
+  const j = await get(`${E}/teams/${id}/schedule?season=${seasonYear()}`, 36e5);
   return (j.events || []).map(e => {
-    const c = e.competitions[0], s = status(c.status, e.status), f = h => { const x = c.competitors.find(k => k.homeAway === h), sc = x.score == null ? null : +(x.score.displayValue ?? x.score.value ?? x.score); return { ...team(x.team), score: isNaN(sc) ? null : sc }; };
+    const c = e.competitions[0], s = status(c.status, e.status), f = h => { const x = c.competitors.find(k => k.homeAway === h), sc = x.score == null ? null : +(x.score.displayValue ?? x.score.value ?? x.score); return { ...team(x.team), score: isNaN(sc) ? null : sc, w: x.winner === true ? true : x.winner === false ? false : null }; };
     return { id: e.id, date: e.date, state: s.state || "pre", detail: s.shortDetail || "", home: f("home"), away: f("away") };
   });
 }
 
 async function standings() {
-  const j = await get("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings", 3e5);
+  const j = await get(`https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=${seasonYear()}`, 3e5);
   return (j.children || []).map(c => ({
     conf: (c.name || "").replace(" Conference", ""),
     rows: ((c.standings && c.standings.entries) || []).map(e => {
@@ -101,13 +104,22 @@ async function news(q) {
 
 async function player(id) {
   if (!/^\d+$/.test(id)) throw new Error("bad id");
-  const j = await get(`https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${id}/overview`, 36e5);
-  const s = j.statistics || {}, sp = (s.splits || [])[0] || {};
-  return { labels: s.labels || s.names || [], stats: sp.stats || [], split: sp.displayName || "" };
+  const y = seasonYear(), split = seasonLabel(y) + " regular season";
+  try {
+    const j = await get(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${y}/types/2/athletes/${id}/statistics`, 36e5);
+    const m = {};
+    for (const c of (j.splits && j.splits.categories) || []) for (const s of c.stats || []) if (!(s.name in m)) m[s.name] = s.displayValue ?? s.value;
+    const pick = [["GP", ["gamesPlayed"]], ["MIN", ["avgMinutes"]], ["PPG", ["avgPoints"]], ["RPG", ["avgRebounds"]], ["APG", ["avgAssists"]], ["SPG", ["avgSteals"]], ["BPG", ["avgBlocks"]], ["TO", ["avgTurnovers"]], ["FG%", ["fieldGoalPct"]], ["3P%", ["threePointFieldGoalPct", "threePointPct"]], ["FT%", ["freeThrowPct"]], ["Total PTS", ["points"]], ["Total REB", ["rebounds"]], ["Total AST", ["assists"]]];
+    const out = pick.map(([l, ns]) => [l, ns.map(n => m[n]).find(v => v != null)]).filter(([, v]) => v != null);
+    return { labels: out.map(o => o[0]), stats: out.map(o => o[1]), split };
+  } catch (e) {
+    if (/^404/.test(e.message)) return { labels: [], stats: [], split }; // no games played yet this season
+    throw e;
+  }
 }
 
 async function players() {
-  const base = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=50&seasontype=2";
+  const base = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=50&seasontype=2&season=${seasonYear()}`;
   const sorts = ["offensive.avgPoints", "general.avgRebounds", "offensive.avgAssists", "defensive.avgSteals", "defensive.avgBlocks", "offensive.fieldGoalPct", "offensive.threePointFieldGoalPct", "offensive.freeThrowPct"];
   const pull = async q => (await Promise.allSettled(sorts.map(s => get(`${base}&isqualified=${q}&sort=${s}:desc`, 6e5)))).filter(r => r.status === "fulfilled").map(r => r.value);
   let res = await pull(true);
@@ -137,7 +149,7 @@ async function players() {
   }
   const rows = [...seen.values()];
   const cols = [...PREF, ...order.filter(l => !PREF.includes(l)), "TPTS", "TREB", "TAST", "TSTL", "TBLK"].filter(c => rows.some(r => r.v[c] != null));
-  return { cols, rows, desc };
+  return { cols, rows, desc, season: seasonLabel(seasonYear()) };
 }
 
 async function injuryFeed() {
@@ -159,7 +171,32 @@ async function month(ym) {
   });
 }
 
-const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")) };
+const etS = t => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/New_York" }).replace(/-/g, "");
+const evNorm = e => {
+  const c = e.competitions[0], s = status(e.status, c.status);
+  const f = h => { const x = c.competitors.find(k => k.homeAway === h); return { ...team(x.team), score: +x.score || 0, record: (x.records && x.records[0] && x.records[0].summary) || "" }; };
+  return { id: e.id, date: e.date, state: s.state, detail: s.shortDetail, home: f("home"), away: f("away") };
+};
+// Live games from yesterday's and today's (Eastern) slates, so games that run past midnight stay visible.
+async function live() {
+  const all = (await Promise.all([etS(Date.now() - 864e5), etS(Date.now())].map(d => scoreboard(new URLSearchParams({ date: d }))))).flat();
+  const seen = new Set();
+  return all.filter(g => g.state === "in" && !seen.has(g.id) && seen.add(g.id));
+}
+async function recent() {
+  const j = await get(`${E}/scoreboard?dates=${etS(Date.now() - 6 * 864e5)}-${etS(Date.now())}&limit=300`, 6e4);
+  return (j.events || []).map(evNorm).filter(g => g.state === "post").sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+}
+async function moves() {
+  const j = await get(`${E}/transactions?limit=100`, 6e5);
+  return (j.transactions || []).map(t => {
+    const d = t.description || "";
+    const kind = /waive|release|cut/i.test(d) ? "Release" : /trade|acquire/i.test(d) ? "Trade" : /sign|agree|claim|extend|contract/i.test(d) ? "Signing" : "Other";
+    return { date: t.date || "", text: d, kind, team: team(t.team) || null };
+  }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
+const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves() };
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), m = u.pathname.split("/");
