@@ -12,6 +12,9 @@ No dependencies. Needs Node 18+.
 2. Create a new Web Service from the repo. Start command: `node server.js` (no build step).
 3. The host sets PORT for you. Open the URL it gives you.
 
+## Stats
+- On the Stats tab, use the team box above the table to switch between All NBA and a single team (or tap ★ My team). Tap the TEAM heading to sort A to Z. Percent columns list players with enough games first.
+
 ## How it works
 - `server.js` fetches ESPN's public NBA JSON, reshapes it, caches it for 15s (live games) to 1 day (teams), and serves it at /api/*.
 - `public/index.html` calls those routes and refreshes live games every 20s.
@@ -26,11 +29,10 @@ No dependencies. Needs Node 18+.
 1. Close the black Command Prompt window (this stops the old server).
 2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
 3. In your browser press Ctrl+F5.
-4. Check the small version tag next to NBA HUB at the top (currently v14). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+4. Check the small version tag next to NBA HUB at the top (currently v15). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
 
 ## Highlights, special events and your team
-- **Video clips** on Home come from the NBA's YouTube channel automatically and play in a popup. To add more channels, edit `highlights.json` (a channel's id is the long code that starts with UC).
-- **X posts:** on Home, open Highlights > From X and paste a post link. It is saved in your browser and plays in a popup. To show the same posts to everyone who visits your site, add the links to `"posts"` in `highlights.json`.
+- **Video clips** on Home come from YouTube channels' public feeds and play in a popup. It ships with the NBA and House of Highlights; tap a channel name above the clips to see just that channel. To add or remove channels, edit `highlights.json` (a channel's id is the long code that starts with UC; you can find it on the channel's About page under Share > Copy channel ID). House of Highlights covers other sports too, so it isn't only basketball.
 - **events.json** lists events that ESPN's schedule leaves out, such as the All-Star Saturday contests. Add or change lines there and they get a star on the Schedule calendar.
 - **My Team** and your place on the page are remembered in your own browser. There are no accounts.
 
