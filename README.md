@@ -26,10 +26,18 @@ No dependencies. Needs Node 18+.
 1. Close the black Command Prompt window (this stops the old server).
 2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
 3. In your browser press Ctrl+F5.
-4. Check the small version tag next to NBA HUB at the top (currently v13). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+4. Check the small version tag next to NBA HUB at the top (currently v14). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
 
 ## Highlights, special events and your team
 - **Video clips** on Home come from the NBA's YouTube channel automatically and play in a popup. To add more channels, edit `highlights.json` (a channel's id is the long code that starts with UC).
 - **X posts:** on Home, open Highlights > From X and paste a post link. It is saved in your browser and plays in a popup. To show the same posts to everyone who visits your site, add the links to `"posts"` in `highlights.json`.
 - **events.json** lists events that ESPN's schedule leaves out, such as the All-Star Saturday contests. Add or change lines there and they get a star on the Schedule calendar.
 - **My Team** and your place on the page are remembered in your own browser. There are no accounts.
+
+## Injuries
+- The injury report combines ESPN's injury list, the injuries ESPN pins on each roster, and your own file, **injuries-extra.json**.
+- ESPN sometimes misses long-term injuries (it shows Johnny Furphy as healthy, for example). Add them by hand in `injuries-extra.json`. Copy the Furphy entry and change it:
+      { "name": "Player Name", "id": "ESPN player id", "team": "IND", "pos": "G", "status": "Out for season", "note": "Knee · Torn ACL", "comment": "Out for the season.", "until": "2027-07-01" }
+  `name` and `team` (the 3-letter code, like IND) are the only required parts. `id` is the number at the end of the player's ESPN page address (espn.com/nba/player/_/id/**5157066**/...); if you leave it out, the app finds it from the roster. `until` is optional: after that date the entry disappears by itself.
+- Your file always wins over ESPN. Delete the entry when the player is back. Changes show up within 10 minutes, or right away if you restart the server.
+- If a status says "out for the season" in ESPN's own notes, it is labelled "Out for season" automatically.

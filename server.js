@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "v13";
+const APP_V = "v14";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -82,15 +82,72 @@ const teamsList = async () => {
 };
 
 const injStatus = x => typeof x === "string" ? x : (x && (x.description || x.name)) || "Injured";
-async function injuries() {
-  const j = await get(`${E}/injuries`, 6e5), m = {};
-  for (const t of j.injuries || []) for (const i of t.injuries || []) {
-    const id = i.athlete && i.athlete.id;
-    if (!id) continue;
-    const d = i.details || {};
-    m[id] = { status: injStatus(i.status), note: [d.type, d.detail, d.side].filter(Boolean).join(" · "), comment: i.shortComment || "", ret: d.returnDate || "" };
-  }
-  return m;
+const normName = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/[^a-z]/g, "");
+// ESPN's injury list gives its players no plain "id" field, so dig the id out of the profile links instead.
+const athId = a => {
+  if (!a) return "";
+  if (a.id) return String(a.id);
+  for (const l of a.links || []) { const m = /\/id\/(\d+)/.exec(l.href || ""); if (m) return m[1]; }
+  const m = /athletes\/(\d+)/.exec(a.$ref || "") || /a:(\d+)/.exec(a.uid || "");
+  return m ? m[1] : "";
+};
+// "out for the season", "season-ending surgery", "will miss the rest of the season" ... but not "back for the season opener".
+const SEASON_END = /season-ending|(out|miss\w*|sidelined|done|shut down)\b[^.]{0,30}?\b(for|rest of|remainder of|entire)\s+(the\s+)?(entire\s+|rest of the\s+|remainder of the\s+)?(season|year)\b(?!\s*(opener|debut|start))/i;
+
+function fromEspn(i, tm) {
+  const d = i.details || {}, a = i.athlete || {};
+  const comment = i.shortComment || String(i.longComment || "").slice(0, 240);
+  let status = injStatus(i.status);
+  if (/out/i.test(status) && SEASON_END.test([comment, i.longComment, d.detail].filter(Boolean).join(" "))) status = "Out for season";
+  return {
+    id: athId(a), name: a.displayName || a.fullName || "", pos: (a.position && a.position.abbreviation) || "",
+    team: { id: String(tm.id || (a.team && a.team.id) || ""), name: tm.displayName || "" },
+    status, note: [d.type, d.detail, d.side].filter(Boolean).join(" · "), comment, date: i.date || "", ret: d.returnDate || ""
+  };
+}
+
+// injuries-extra.json: injuries you add by hand for anything ESPN misses. It always wins over ESPN, and drops off after its "until" date.
+function manualInjuries(tl) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  const raw = readJson("injuries-extra.json", []);
+  return (Array.isArray(raw) ? raw : []).filter(x => x && x.name && !(x.until && String(x.until) < today)).map(x => {
+    const k = String(x.team || "").toLowerCase();
+    const t = tl.find(t => String(t.id) === k || (t.abbr || "").toLowerCase() === k || (t.name || "").toLowerCase() === k);
+    return { id: x.id ? String(x.id) : "", name: String(x.name), pos: x.pos || "", team: { id: t ? String(t.id) : "", name: t ? t.name : String(x.team || "") }, status: x.status || "Out", note: x.note || "", comment: x.comment || "", date: x.date || "", ret: x.return || "" };
+  });
+}
+
+// Everyone who is hurt, from three places: ESPN's injury list, the injuries ESPN pins on each roster, and injuries-extra.json.
+// ids = which team rosters to read (null = all 30).
+async function buildInjuries(ids) {
+  let feedFailed = null;
+  const [feed, tl] = await Promise.all([get(`${E}/injuries`, 6e5).catch(e => { feedFailed = e; return {}; }), teamsList().catch(() => [])]);
+  const want = ids || tl.map(t => String(t.id));
+  const rost = await Promise.all(want.map(id => get(`${E}/teams/${id}/roster`, 36e5).then(j => ({ id: String(id), a: (j.athletes || []).flatMap(x => x.items || [x]) })).catch(() => ({ id: String(id), a: [] }))));
+  if (feedFailed && rost.every(r => !r.a.length)) throw feedFailed;
+  const byTeamName = new Map(), byName = new Map(), tname = id => (tl.find(t => String(t.id) === String(id)) || {}).name || "";
+  for (const r of rost) for (const p of r.a) { const n = normName(p.displayName); byTeamName.set(r.id + ":" + n, String(p.id)); byName.set(n, byName.has(n) ? "" : String(p.id)); }
+  const all = [];
+  for (const t of feed.injuries || []) for (const i of t.injuries || []) all.push(fromEspn(i, t));
+  for (const r of rost) for (const p of r.a) for (const i of p.injuries || []) all.push(fromEspn({ ...i, athlete: p }, { id: r.id, displayName: tname(r.id) }));
+  const out = new Map();
+  const put = (x, force) => {
+    if (!x.name) return;
+    const n = normName(x.name);
+    if (!x.id) x.id = byTeamName.get(x.team.id + ":" + n) || byName.get(n) || "";
+    const k = x.id || x.team.id + ":" + n;
+    if (force || !out.has(k)) out.set(k, x);
+  };
+  all.forEach(x => put(x, false));
+  manualInjuries(tl).forEach(x => put(x, true));
+  return [...out.values()];
+}
+let injAll = { t: 0, v: null };
+async function allInjuries() {
+  if (injAll.v && Date.now() - injAll.t < 6e5) return injAll.v;
+  const v = await buildInjuries(null);
+  injAll = { t: Date.now(), v };
+  return v;
 }
 
 // Starting five from the team's most recent finished game (ESPN has no depth chart).
@@ -108,12 +165,17 @@ async function lastStarters(id) {
 }
 
 async function roster(id) {
-  const [j, inj, ls] = await Promise.all([get(`${E}/teams/${id}/roster`, 36e5), injuries().catch(() => ({})), lastStarters(id).catch(() => null)]);
+  const [j, inj, ls] = await Promise.all([get(`${E}/teams/${id}/roster`, 36e5), buildInjuries([String(id)]).catch(() => []), lastStarters(id).catch(() => null)]);
   const a = (j.athletes || []).flatMap(x => x.items || [x]);
-  const players = a.map(p => ({
-    id: p.id, name: p.displayName, jersey: p.jersey || "", pos: (p.position && p.position.abbreviation) || "", height: p.displayHeight || "", age: p.age || "",
-    inj: inj[p.id] || (p.injuries && p.injuries[0] ? { status: injStatus(p.injuries[0].status), note: "", comment: "", ret: "" } : null)
-  }));
+  const mine = inj.filter(x => String(x.team.id) === String(id));
+  const byId = new Map(mine.filter(x => x.id).map(x => [x.id, x])), byN = new Map(mine.map(x => [normName(x.name), x]));
+  const players = a.map(p => {
+    const x = byId.get(String(p.id)) || byN.get(normName(p.displayName));
+    return {
+      id: p.id, name: p.displayName, jersey: p.jersey || "", pos: (p.position && p.position.abbreviation) || "", height: p.displayHeight || "", age: p.age || "",
+      inj: x ? { status: x.status, note: x.note, comment: x.comment, ret: x.ret } : null
+    };
+  });
   return { players, starters: (ls && ls.starters) || [], from: (ls && ls.from) || null };
 }
 
@@ -194,12 +256,8 @@ async function players() {
 }
 
 async function injuryFeed() {
-  const j = await get(`${E}/injuries`, 6e5), out = [];
-  for (const t of j.injuries || []) for (const i of t.injuries || []) {
-    const d = i.details || {}, a = i.athlete || {};
-    out.push({ id: a.id, name: a.displayName || a.fullName || "", pos: (a.position && a.position.abbreviation) || "", team: { id: String(t.id || ""), name: t.displayName || "" }, status: injStatus(i.status), note: [d.type, d.detail, d.side].filter(Boolean).join(" · "), comment: i.shortComment || "", date: i.date || "", ret: d.returnDate || "" });
-  }
-  return out.filter(x => x.name).sort((x, y) => String(y.date).localeCompare(String(x.date)));
+  const list = await allInjuries();
+  return list.filter(x => x.name).sort((x, y) => String(y.date).localeCompare(String(x.date)));
 }
 
 async function month(ym) {
