@@ -75,7 +75,7 @@ th.s{cursor:pointer;user-select:none}th.s.on{color:var(--acc);font-weight:700}.b
 .srow{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bd)}.srow img{border-radius:6px;object-fit:cover;flex:none}.srow small{display:block;color:var(--mut)}
 .sel{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;color:var(--fg);max-width:60%}
 tr.tot td{font-weight:700;border-top:2px solid var(--bd);background:var(--bg)}
-@media(min-width:820px){.h2g{grid-template-columns:2fr 1fr}.h3g{grid-template-columns:repeat(3,1fr)}.hero2{min-height:400px}.hd2{display:flex;align-items:center;gap:28px}.hd2 .tabs{flex:1;border-bottom:0}}
+@media(min-width:820px){.h2g{grid-template-columns:1fr 1fr}.h3g{grid-template-columns:repeat(3,1fr)}.hero2{min-height:400px}.hd2{display:flex;align-items:center;gap:28px}.hd2 .tabs{flex:1;border-bottom:0}}
 .cg{display:grid;gap:14px}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.ch{text-align:center;color:var(--mut);font-size:11px}
 .cd{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:5px;min-height:52px;cursor:pointer}.cd b{font-size:13px}.cd small{display:block;color:var(--mut);font-size:10px;margin-top:2px}
 .cd.on{background:var(--acc);border-color:var(--acc);color:#fff}.cd.on small{color:#fff}.cd.td b{color:var(--acc)}.cd.on.td b{color:#fff}
@@ -88,8 +88,9 @@ tr.tot td{font-weight:700;border-top:2px solid var(--bd);background:var(--bg)}
 .rc{max-height:420px;overflow:auto}
 @media(min-width:820px){.h3g{grid-template-columns:1fr 1fr}}
 .ver{font-size:11px;font-weight:500;color:var(--mut);letter-spacing:0;margin-left:8px;vertical-align:middle}
+.hero2.sm{min-height:170px!important}
 </style></head><body>
-<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v10</span></h1><div class="tabs" id="tabs"></div></div></header>
+<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v11</span></h1><div class="tabs" id="tabs"></div></div></header>
 <div class="wrap"><div id="vb"></div><div class="tick" id="tick"></div></div>
 <main class="wrap" id="main"></main>
 <nav class="bn" id="bn"></nav>
@@ -155,14 +156,13 @@ function totRow(t){const P=t.players,sm=k=>P.reduce((a,p)=>a+(parseFloat(p.stats
 const v=k=>t.totals&&t.totals[k]!=null&&t.totals[k]!==""?t.totals[k]:(["FG","3PT","FT"].includes(k)?pr(k):sm(k));
 return`<tr class="tot"><td>TEAM TOTALS</td>${BC.map(k=>`<td>${esc(v(k))}</td>`).join("")}</tr>`}
 function ticker(){return`<div class="tkd"><div style="display:flex;gap:6px;align-items:center"><button class="chip" style="margin:0;padding:2px 9px" onclick="shift(-1)">‹</button><b>${esc(lbl(date))}</b><button class="chip" style="margin:0;padding:2px 9px" onclick="shift(1)">›</button></div><a class="lnk" onclick="go('Schedule')">See Full Schedule</a></div>`+(TG().length?TG().map(g=>{const pre=g.state=="pre",lv=g.state=="in";return`<div class="tk" onclick="openGame('${g.id}')"><div class="tks" style="color:${lv?"var(--live)":"var(--mut)"}">${pre?esc(tm(g.date)):esc(g.detail)}${lv?' <span class="live">LIVE</span>':""}</div>${["away","home"].map(s=>`<div class="row" style="margin:3px 0">${L(g[s],22)}<b style="min-width:0">${esc(g[s].abbr)}</b><b class="tm" style="color:var(--fg)">${pre?"":g[s].score}</b></div>`).join("")}</div>`}).join(""):`<div class="tk" style="color:var(--mut)">No games on this date</div>`)}
-function homeTab(){const h=news.find(a=>a.img)||news[0],rest=news.filter(a=>a!==h);
+function homeTab(){const all=[...news].sort((x,y)=>new Date(y.time)-new Date(x.time)),h=all.find(a=>a.img)||all[0],rest=all.filter(a=>a!==h).slice(0,6);
 const th=a=>a.img?`<img src="${safe(a.img)}" alt="" width="76" height="52" loading="lazy">`:`<div style="width:76px;height:52px;background:var(--bd);border-radius:6px;flex:none"></div>`;
 const row=a=>`<a class="srow" href="${safe(a.link)}" target="_blank" rel="noopener">${th(a)}<span><b>${esc(a.title)}</b><small>${ago(a.time)}</small></span></a>`;
-const feat=h?`<a class="hero2" href="${safe(h.link)}" target="_blank" rel="noopener">${h.img?`<img class="bgi" src="${safe(h.img)}" alt="">`:""}<div class="ov2"><small>TOP STORY</small><b>${esc(h.title)}</b><span>${esc(h.text)}</span></div></a>`:`<div class="hero2"><div class="ov2"><b>Welcome to NBA HUB</b><span>Scores, stats, rosters and news.</span></div></div>`;
 const c=stand.find(x=>x.conf==hconf)||stand[0],r0=c&&c.rows[0];
 const sd=`<div class="card"><div class="sec" style="margin:0 0 8px"><h2>Standings</h2><a onclick="sview='stand';go('Stats')">See Full ›</a></div><div style="margin-bottom:6px">${stand.map(x=>`<button class="chip ${c&&x.conf==c.conf?"on":""}" onclick="hconf='${esc(x.conf)}';draw()">${esc(x.conf)}</button>`).join("")}</div>${c?`<table><tr><th>#</th><th>TEAM</th><th>W</th><th>L</th><th>GB</th></tr>${c.rows.slice(0,8).map((r,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${L(r,20)} ${esc(r.abbr)}</td><td>${r.w}</td><td>${r.l}</td><td>${i?(((r0.w-r.w)+(r.l-r0.l))/2).toFixed(1).replace(/\.0$/,""):"–"}</td></tr>`).join("")}</table>`:`<div class="note">Standings unavailable.</div>`}</div>`;
-const lst=(t,a)=>`<div class="card"><div class="sec" style="margin:0 0 4px"><h2>${t}</h2><a onclick="go('News')">See All ›</a></div>${a.map(row).join("")||`<div class="note">No headlines available right now.</div>`}</div>`;
-return liveStrip()+`<div class="h2g">${feat}${recentCard()}</div><div class="h3g">${sd}<div>${my()}</div></div>`}
+const nc=`<div class="card"><div class="sec" style="margin:0 0 8px"><h2>Latest News</h2><a onclick="go('News')">See All ›</a></div>${h?`<a class="hero2 sm" href="${safe(h.link)}" target="_blank" rel="noopener" style="margin-bottom:6px">${h.img?`<img class="bgi" src="${safe(h.img)}" alt="">`:""}<div class="ov2"><b style="font-size:18px">${esc(h.title)}</b><span style="font-size:12px">${ago(h.time)}</span></div></a>`:""}${rest.map(row).join("")||(h?"":`<div class="note">No headlines available right now.</div>`)}</div>`;
+return liveStrip()+`<div class="h2g">${recentCard()}${nc}</div><div class="h3g">${sd}<div>${my()}</div></div>`}
 const rmap=()=>{const o={};stand.forEach(c=>c.rows.forEach(r=>o[r.id]=r.w+"-"+r.l));return o};
 function tn(t,R){const r=t.record||R[t.id];return`<b class="ab">${esc(t.abbr)}</b><b class="fn">${esc(t.name||t.abbr)}</b>${r?` <span style="color:var(--mut);font-size:12px">(${esc(r)})</span>`:""}`}
 function gameRow(g,R){const sc=g.state!="pre"&&g.away.score!=null&&g.home.score!=null;return`<div class="card row" style="cursor:pointer;margin:6px 0;flex-wrap:wrap" onclick="openSched('${g.id}','${etD(g.date)}')">${wlb(g)}${L(g.away,30)}${tn(g.away,R)}<span style="color:var(--mut)">at</span>${L(g.home,30)}${tn(g.home,R)}<span class="tm">${g.state=="pre"?esc(tm(g.date)):esc(g.detail||"Final")}${sc?" · "+g.away.score+"-"+g.home.score:""}</span></div>`}
@@ -241,7 +241,7 @@ open(`<div style="display:flex;gap:12px;align-items:center"><img class="hd" src=
 try{const j=await api("/api/player/"+id);$("#sea").outerHTML=j.stats.length?`<div style="color:var(--mut);font-size:12px">${esc(j.split||"")}</div><div class="tiles">${j.labels.map((l,i)=>tile(l,f2(j.stats[i]))).join("")}</div>`:`<div class="note">No ${esc(j.split||"season")} stats yet.</div>`}catch(e){const s=$("#sea");if(s)s.textContent="Season stats unavailable."}}
 function draw(){const nb=f=>TABS.map(([t,i])=>`<button class="${t==tab?"on":""}" onclick="go('${t}')">${f(i)}${t}</button>`).join("");$("#tabs").innerHTML=nb(()=>"");$("#bn").innerHTML=nb(i=>`<span>${i}</span>`);$("#tick").innerHTML=tab=="Scores"?"":ticker();
 $("#main").innerHTML={Home:homeTab,Scores:gamesSec,Schedule:schedule,Teams:teamsTab,Stats:statsTab,Leaders:leadersTab,News:newsTab}[tab]()}
-const APP_V="v10";
+const APP_V="v11";
 async function chkVer(){try{const j=await api("/api/version");if(j.v!==APP_V)throw 0}catch(e){$("#vb").innerHTML='<div class="note" style="border-color:var(--live);color:var(--fg);margin-top:10px"><b>Your server is out of date.</b> Close the black window, run <code>node server.js</code> again from the newest nba-hub folder, then press Ctrl+F5 in your browser.</div>'}}
 (async()=>{draw();chkVer();await Promise.allSettled([api("/api/teams").then(r=>teams=r),api("/api/standings").then(r=>stand=r),api("/api/news").then(r=>news=r)]);draw();loadFav();loadGames();loadRecent();
 setInterval(()=>{if(document.hidden||$("#m").classList.contains("show"))return;if(tab=="Home"||tab=="Scores"){loadGames();if(tab=="Home")loadRecent()}else refreshTick()},20000)})();
