@@ -26,4 +26,10 @@ No dependencies. Needs Node 18+.
 1. Close the black Command Prompt window (this stops the old server).
 2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
 3. In your browser press Ctrl+F5.
-4. Check the small version tag next to NBA HUB at the top (currently v12). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+4. Check the small version tag next to NBA HUB at the top (currently v13). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+
+## Highlights, special events and your team
+- **Video clips** on Home come from the NBA's YouTube channel automatically and play in a popup. To add more channels, edit `highlights.json` (a channel's id is the long code that starts with UC).
+- **X posts:** on Home, open Highlights > From X and paste a post link. It is saved in your browser and plays in a popup. To show the same posts to everyone who visits your site, add the links to `"posts"` in `highlights.json`.
+- **events.json** lists events that ESPN's schedule leaves out, such as the All-Star Saturday contests. Add or change lines there and they get a star on the Schedule calendar.
+- **My Team** and your place on the page are remembered in your own browser. There are no accounts.

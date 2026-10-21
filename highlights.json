@@ -1,0 +1,9 @@
+{
+  "youtube": [
+    { "name": "NBA", "channelId": "UCWJ2lWNubArHWmf3FIHbfcQ" }
+  ],
+  "x": {
+    "accounts": ["NBA", "HouseHighlights", "BleacherReport", "SportsCenter"],
+    "posts": []
+  }
+}

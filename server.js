@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "v12";
+const APP_V = "v13";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -20,13 +20,38 @@ async function get(url, ttl) {
 const team = t => t && { id: t.id, abbr: t.abbreviation, name: t.displayName, logo: t.logo || (t.logos && t.logos[0] && t.logos[0].href) || "" };
 const status = (...o) => { for (const x of o) if (x && x.type) return x.type; return {}; };
 
+// Special-event label for a game: All-Star, NBA Cup, Play-In, playoffs, Christmas, global games, preseason.
+// ESPN puts these in the game's name, its notes, or its season type; anything it doesn't mention stays untagged.
+function tagOf(e) {
+  try {
+    const c = (e.competitions && e.competitions[0]) || {};
+    const notes = (c.notes || []).map(n => n.headline || n.text || "").filter(Boolean);
+    const txt = [e.name, e.shortName, ...notes].join(" | ");
+    const st = (e.season && +e.season.type) || (e.seasonType && +e.seasonType.id) || 0;
+    const slug = String((e.season && e.season.slug) || (e.seasonType && e.seasonType.name) || "");
+    const day = new Date(e.date).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    if (/all[- ]star|rising stars|celebrity game|skills challenge|3-point (contest|challenge)|three-point (contest|challenge)|slam dunk/i.test(txt)) return { tag: "All-Star", sp: true };
+    if (/nba finals/i.test(txt)) return { tag: "NBA Finals", sp: true };
+    if (st === 5 || /play-?in/i.test(txt + " " + slug)) return { tag: "Play-In", sp: true };
+    if (/nba cup|emirates/i.test(txt)) {
+      const m = txt.match(/quarterfinal|semifinal|final/i);
+      return m ? { tag: "NBA Cup " + m[0][0].toUpperCase() + m[0].slice(1).toLowerCase(), sp: true } : { tag: "NBA Cup", sp: false };
+    }
+    if (st === 3 || /playoff|first round|second round|conference (semi)?finals?/i.test(txt)) return { tag: (notes[0] || "Playoffs").slice(0, 40), sp: true };
+    if (/-12-25$/.test(day)) return { tag: "Christmas Day", sp: true };
+    if (/nba (paris|london|mexico|berlin|global)|global games|abu dhabi/i.test(txt)) return { tag: "Global Games", sp: true };
+    if (st === 1 || /preseason/i.test(slug)) return { tag: "Preseason", sp: false };
+  } catch (_) {}
+  return { tag: "", sp: false };
+}
+
 async function scoreboard(q) {
   const d = (q.get("date") || "").replace(/-/g, "");
   const j = await get(`${E}/scoreboard${/^\d{8}$/.test(d) ? "?dates=" + d : ""}`, 15e3);
   return (j.events || []).map(e => {
     const c = e.competitions[0], s = status(e.status, c.status);
     const f = h => { const x = c.competitors.find(k => k.homeAway === h); return { ...team(x.team), score: +x.score || 0, record: (x.records && x.records[0] && x.records[0].summary) || "" }; };
-    return { id: e.id, date: e.date, state: s.state, detail: s.shortDetail, home: f("home"), away: f("away"), tv: (c.broadcasts || []).flatMap(b => b.names || []).join(", ") };
+    return { id: e.id, date: e.date, state: s.state, detail: s.shortDetail, home: f("home"), away: f("away"), ...tagOf(e), tv: (c.broadcasts || []).flatMap(b => b.names || []).join(", ") };
   });
 }
 
@@ -68,20 +93,35 @@ async function injuries() {
   return m;
 }
 
+// Starting five from the team's most recent finished game (ESPN has no depth chart).
+async function lastStarters(id) {
+  const sch = await schedule(id);
+  const done = sch.filter(g => g.state === "post").sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!done) return null;
+  const g = await game(done.id), t = g.teams.find(x => String(x.id) === String(id));
+  if (!t) return null;
+  const home = String(done.home.id) === String(id), opp = home ? done.away : done.home;
+  return {
+    from: { id: done.id, date: done.date, opp: opp.abbr, home },
+    starters: t.players.filter(p => p.starter).slice(0, 5).map(p => ({ id: p.id, name: p.name, pos: p.pos, jersey: p.jersey }))
+  };
+}
+
 async function roster(id) {
-  const [j, inj] = await Promise.all([get(`${E}/teams/${id}/roster`, 36e5), injuries().catch(() => ({}))]);
+  const [j, inj, ls] = await Promise.all([get(`${E}/teams/${id}/roster`, 36e5), injuries().catch(() => ({})), lastStarters(id).catch(() => null)]);
   const a = (j.athletes || []).flatMap(x => x.items || [x]);
-  return a.map(p => ({
+  const players = a.map(p => ({
     id: p.id, name: p.displayName, jersey: p.jersey || "", pos: (p.position && p.position.abbreviation) || "", height: p.displayHeight || "", age: p.age || "",
     inj: inj[p.id] || (p.injuries && p.injuries[0] ? { status: injStatus(p.injuries[0].status), note: "", comment: "", ret: "" } : null)
   }));
+  return { players, starters: (ls && ls.starters) || [], from: (ls && ls.from) || null };
 }
 
 async function schedule(id) {
   const j = await get(`${E}/teams/${id}/schedule?season=${seasonYear()}`, 36e5);
   return (j.events || []).map(e => {
     const c = e.competitions[0], s = status(c.status, e.status), f = h => { const x = c.competitors.find(k => k.homeAway === h), sc = x.score == null ? null : +(x.score.displayValue ?? x.score.value ?? x.score); return { ...team(x.team), score: isNaN(sc) ? null : sc, w: x.winner === true ? true : x.winner === false ? false : null }; };
-    return { id: e.id, date: e.date, state: s.state || "pre", detail: s.shortDetail || "", home: f("home"), away: f("away") };
+    return { id: e.id, date: e.date, state: s.state || "pre", detail: s.shortDetail || "", home: f("home"), away: f("away"), ...tagOf(e) };
   });
 }
 
@@ -168,7 +208,7 @@ async function month(ym) {
   const j = await get(`${E}/scoreboard?dates=${y}${p(m)}01-${y}${p(m)}${p(last)}&limit=1000`, 3e5);
   return (j.events || []).map(e => {
     const c = e.competitions[0], s = status(e.status, c.status), f = h => { const x = c.competitors.find(k => k.homeAway === h); return { id: x.team.id, abbr: x.team.abbreviation, score: +x.score || 0 }; };
-    return { id: e.id, date: e.date, state: s.state, home: f("home"), away: f("away") };
+    return { id: e.id, date: e.date, state: s.state, home: f("home"), away: f("away"), ...tagOf(e) };
   });
 }
 
@@ -176,7 +216,7 @@ const etS = t => new Date(t).toLocaleDateString("en-CA", { timeZone: "America/Ne
 const evNorm = e => {
   const c = e.competitions[0], s = status(e.status, c.status);
   const f = h => { const x = c.competitors.find(k => k.homeAway === h); return { ...team(x.team), score: +x.score || 0, record: (x.records && x.records[0] && x.records[0].summary) || "" }; };
-  return { id: e.id, date: e.date, state: s.state, detail: s.shortDetail, home: f("home"), away: f("away") };
+  return { id: e.id, date: e.date, state: s.state, detail: s.shortDetail, home: f("home"), away: f("away"), ...tagOf(e) };
 };
 // Live games from yesterday's and today's (Eastern) slates, so games that run past midnight stay visible.
 async function live() {
@@ -211,7 +251,44 @@ async function moves() {
   }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
-const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves(), version: () => ({ v: APP_V }) };
+const readJson = (file, dflt) => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, file), "utf8")); } catch (_) { return dflt; } };
+const decodeXml = t => String(t || "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'");
+const HL_DEFAULT = { youtube: [{ name: "NBA", channelId: "UCWJ2lWNubArHWmf3FIHbfcQ" }], x: { accounts: ["NBA", "HouseHighlights", "BleacherReport", "SportsCenter"], posts: [] } };
+
+// Newest uploads from a YouTube channel's public RSS feed (no key needed).
+async function ytFeed(ch) {
+  const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.channelId}`, c = cache.get(url);
+  if (c && Date.now() - c.t < 6e5) return c.v;
+  const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 nba-hub" } });
+  if (!r.ok) throw new Error(`${r.status} from YouTube for ${ch.name || ch.channelId}`);
+  const xml = await r.text(), author = decodeXml((xml.match(/<author>\s*<name>([^<]*)<\/name>/) || [])[1] || ch.name || "");
+  const v = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(m => {
+    const b = m[1], id = (b.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1];
+    return id && /^[\w-]{11}$/.test(id) ? { id, title: decodeXml((b.match(/<title>([^<]*)<\/title>/) || [])[1]), time: (b.match(/<published>([^<]+)<\/published>/) || [])[1] || "", channel: author } : null;
+  }).filter(Boolean);
+  cache.set(url, { t: Date.now(), v });
+  return v;
+}
+
+async function highlights() {
+  const cfg = readJson("highlights.json", HL_DEFAULT);
+  const chans = (Array.isArray(cfg.youtube) ? cfg.youtube : HL_DEFAULT.youtube).filter(c => c && /^UC[\w-]{20,}$/.test(String(c.channelId)));
+  const res = await Promise.allSettled(chans.map(ytFeed));
+  const videos = res.filter(r => r.status === "fulfilled").flatMap(r => r.value).sort((a, b) => String(b.time).localeCompare(String(a.time))).slice(0, 18);
+  const errs = res.filter(r => r.status === "rejected").map(r => r.reason && r.reason.message);
+  const xc = cfg.x || {};
+  const posts = (Array.isArray(xc.posts) ? xc.posts : []).map(u => String(u).match(/^https?:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\/(\w{1,15})\/status\/(\d{5,25})/i)).filter(Boolean).map(m => ({ id: m[2], handle: m[1] }));
+  const accounts = (Array.isArray(xc.accounts) ? xc.accounts : HL_DEFAULT.x.accounts).map(String).filter(a => /^\w{1,15}$/.test(a)).slice(0, 8);
+  return { videos, x: { posts, accounts }, feedError: videos.length ? "" : (errs[0] || "") };
+}
+
+// Events ESPN's schedule doesn't list (All-Star Saturday contests etc.), kept in events.json so you can edit them.
+function eventsList() {
+  const a = readJson("events.json", []);
+  return (Array.isArray(a) ? a : []).filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date)) && typeof x.title === "string").map(x => ({ date: x.date, title: x.title.slice(0, 80), kind: String(x.kind || "Event").slice(0, 20), note: String(x.note || "").slice(0, 120) })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves(), version: () => ({ v: APP_V }), highlights: () => highlights(), events: () => eventsList() };
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), m = u.pathname.split("/");
