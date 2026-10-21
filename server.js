@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "v11";
+const APP_V = "v12";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -184,10 +184,24 @@ async function live() {
   const seen = new Set();
   return all.filter(g => g.state === "in" && !seen.has(g.id) && seen.add(g.id));
 }
+// Finished games from the past week (newest first) plus the next few upcoming games.
+// One scoreboard request per day (the same call the Scores date picker uses); a day that fails is skipped.
 async function recent() {
-  const j = await get(`${E}/scoreboard?dates=${etS(Date.now() - 6 * 864e5)}-${etS(Date.now())}&limit=300`, 6e4);
-  return (j.events || []).map(evNorm).filter(g => g.state === "post").sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12);
+  const now = Date.now(), ks = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3];
+  const ttl = k => k === 0 ? 15e3 : k === -1 ? 6e4 : k < 0 ? 18e5 : 6e5;
+  const res = await Promise.allSettled(ks.map(k => get(`${E}/scoreboard?dates=${etS(now + k * 864e5)}`, ttl(k))));
+  if (res.every(r => r.status === "rejected")) throw new Error(res[0].reason && res[0].reason.message || "no data");
+  const seen = new Set(), all = [];
+  for (const r of res) if (r.status === "fulfilled") for (const e of r.value.events || []) {
+    if (seen.has(e.id)) continue;
+    seen.add(e.id);
+    try { all.push(evNorm(e)); } catch (_) {}
+  }
+  const done = all.filter(g => g.state === "post").sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
+  const next = all.filter(g => g.state === "pre").sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  return [...done, ...next];
 }
+
 async function moves() {
   const j = await get(`${E}/transactions?limit=100`, 6e5);
   return (j.transactions || []).map(t => {

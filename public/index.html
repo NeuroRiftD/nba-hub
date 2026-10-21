@@ -90,7 +90,7 @@ tr.tot td{font-weight:700;border-top:2px solid var(--bd);background:var(--bg)}
 .ver{font-size:11px;font-weight:500;color:var(--mut);letter-spacing:0;margin-left:8px;vertical-align:middle}
 .hero2.sm{min-height:170px!important}
 </style></head><body>
-<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v11</span></h1><div class="tabs" id="tabs"></div></div></header>
+<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v12</span></h1><div class="tabs" id="tabs"></div></div></header>
 <div class="wrap"><div id="vb"></div><div class="tick" id="tick"></div></div>
 <main class="wrap" id="main"></main>
 <nav class="bn" id="bn"></nav>
@@ -191,11 +191,17 @@ const qa=[...new Set(P.map(p=>p.q).filter(Boolean))].sort((a,b)=>a-b),F=P.filter
 const rows=F.map(p=>{const hd=p.q!==last&&pq=="all"?`<div class="qh">${esc(qn(p.q,p.pd))}</div>`:"";last=p.q;const t=tl(p.team);return hd+`<div class="pp ${p.scoring?"sc":""}"><span class="ck">${esc(p.clock||"")}</span><span>${t?L(t,18):""}</span><span>${esc(p.text)}</span><b>${esc(p.score)}</b></div>`}).join("");
 return`<div style="margin-bottom:8px"><button class="chip ${pq=="all"?"on":""}" onclick="pq='all';draw()">All</button>${qa.map(q=>`<button class="chip ${pq==q?"on":""}" onclick="pq=${q};draw()">${qs(q)}</button>`).join("")}<button class="chip ${pscore?"on":""}" onclick="pscore=!pscore;draw()">Scoring plays</button></div><div class="pbp">${rows||`<div class="note">No plays match.</div>`}</div>`}
 const TG=()=>[...live,...games.filter(g=>!live.some(l=>l.id==g.id))];
-async function loadRecent(){try{const r=await api("/api/recent");if(JSON.stringify(r)!=JSON.stringify(recent)){recent=r;if(tab=="Home")draw()}}catch(e){}}
+let recErr="",recDone=false;
+async function loadRecent(){const pe=recErr;try{const r=await api("/api/recent");recErr="";const ch=!recDone||JSON.stringify(r)!=JSON.stringify(recent);recent=r;recDone=true;if(ch&&tab=="Home")draw()}catch(e){recErr=e.message||"error";const ch=!recDone||pe!==recErr;recDone=true;if(ch&&tab=="Home")draw()}}
 async function refreshTick(){try{games=await api("/api/scoreboard?date="+date);live=await api("/api/live")}catch(e){}$("#tick").innerHTML=tab=="Scores"?"":ticker()}
 function liveStrip(){return live.length?`<div class="sec" style="margin:14px 0 8px"><h2><span class="live">LIVE</span> Live Now</h2></div><div class="hs">${live.map(g=>`<div class="card" onclick="openGame('${g.id}')"><small style="color:var(--live);font-weight:700">${esc(g.detail)}</small><div class="sc3"><div>${L(g.away,34)}<b>${g.away.score}</b><small>${esc(g.away.abbr)}</small></div><div>${L(g.home,34)}<b>${g.home.score}</b><small>${esc(g.home.abbr)}</small></div></div></div>`).join("")}</div>`:""}
-function recentCard(){const rows=recent.slice(0,12).map(g=>{const aw=g.away.score>g.home.score,m=(t,w)=>`<div class="row" style="margin:2px 0">${L(t,22)}<b style="${w?"":"font-weight:400;color:var(--mut)"}">${esc(t.abbr)}</b><b class="tm" style="color:${w?"var(--fg)":"var(--mut)"}">${t.score}</b></div>`;return`<div class="srow" style="cursor:pointer" onclick="openSched('${g.id}','${etD(g.date)}')"><div style="flex:1">${m(g.away,aw)}${m(g.home,!aw)}</div><small style="text-align:right;color:var(--mut)">Final<br>${esc(lbl(etD(g.date)))}</small></div>`}).join("");
-return`<div class="card"><div class="sec" style="margin:0 0 4px"><h2>Recent Games</h2><a onclick="go('Scores')">See All ›</a></div><div class="rc">${rows||`<div class="note">No recent games yet.</div>`}</div></div>`}
+function recentCard(){const done=recent.filter(g=>g.state=="post").slice(0,8),next=recent.filter(g=>g.state=="pre").slice(0,4);
+const m=(t,w,pre)=>`<div class="row" style="margin:2px 0">${L(t,22)}<b style="${w?"":"font-weight:400;color:var(--mut)"}">${esc(t.abbr)}</b>${t.record?`<small style="color:var(--mut)">${esc(t.record)}</small>`:""}<b class="tm" style="color:${w?"var(--fg)":"var(--mut)"}">${pre?"":t.score}</b></div>`;
+const fin=g=>{const aw=g.away.score>g.home.score;return`<div class="srow" style="cursor:pointer" onclick="openSched('${g.id}','${etD(g.date)}')"><div style="flex:1">${m(g.away,aw)}${m(g.home,!aw)}</div><small style="text-align:right;color:var(--mut)">Final<br>${esc(lbl(etD(g.date)))}</small></div>`};
+const up=g=>`<div class="srow" style="cursor:pointer" onclick="openSched('${g.id}','${etD(g.date)}')"><div style="flex:1">${m(g.away,true,true)}${m(g.home,true,true)}</div><small style="text-align:right;color:var(--mut)">${esc(lbl(etD(g.date)))}<br>${esc(tm(g.date))}</small></div>`;
+const hd=t=>`<h3 style="margin:8px 0 2px">${t}</h3>`;
+const body=!recDone?`<div class="note">Loading games…</div>`:!done.length&&!next.length?(recErr?`<div class="note">Couldn't load recent games (${esc(recErr)}). <button class="chip" onclick="loadRecent()">Retry</button></div>`:`<div class="note">No games to show yet.</div>`):(done.length?hd("Final")+done.map(fin).join(""):"")+(next.length?hd("Upcoming")+next.map(up).join(""):"");
+return`<div class="card"><div class="sec" style="margin:0 0 4px"><h2>Recent Games</h2><a onclick="go('Scores')">See All ›</a></div><div class="rc">${body}</div></div>`}
 const res=g=>{if(g.state!="post"||!schTeam)return null;const me=g.away.id==schTeam?g.away:g.home,op=me===g.away?g.home:g.away;if(me.score!=null&&op.score!=null&&me.score!==op.score)return me.score>op.score;return me.w!=null?!!me.w:null};
 const wlb=g=>{const r=res(g);return r==null?"":`<span class="wl ${r?"w":"l"}" style="font-size:16px">${r?"W":"L"}</span>`};
 let mv=null,mvK="all",mvT="",mvErr="",mvLoading=false;
@@ -241,7 +247,7 @@ open(`<div style="display:flex;gap:12px;align-items:center"><img class="hd" src=
 try{const j=await api("/api/player/"+id);$("#sea").outerHTML=j.stats.length?`<div style="color:var(--mut);font-size:12px">${esc(j.split||"")}</div><div class="tiles">${j.labels.map((l,i)=>tile(l,f2(j.stats[i]))).join("")}</div>`:`<div class="note">No ${esc(j.split||"season")} stats yet.</div>`}catch(e){const s=$("#sea");if(s)s.textContent="Season stats unavailable."}}
 function draw(){const nb=f=>TABS.map(([t,i])=>`<button class="${t==tab?"on":""}" onclick="go('${t}')">${f(i)}${t}</button>`).join("");$("#tabs").innerHTML=nb(()=>"");$("#bn").innerHTML=nb(i=>`<span>${i}</span>`);$("#tick").innerHTML=tab=="Scores"?"":ticker();
 $("#main").innerHTML={Home:homeTab,Scores:gamesSec,Schedule:schedule,Teams:teamsTab,Stats:statsTab,Leaders:leadersTab,News:newsTab}[tab]()}
-const APP_V="v11";
+const APP_V="v12";
 async function chkVer(){try{const j=await api("/api/version");if(j.v!==APP_V)throw 0}catch(e){$("#vb").innerHTML='<div class="note" style="border-color:var(--live);color:var(--fg);margin-top:10px"><b>Your server is out of date.</b> Close the black window, run <code>node server.js</code> again from the newest nba-hub folder, then press Ctrl+F5 in your browser.</div>'}}
 (async()=>{draw();chkVer();await Promise.allSettled([api("/api/teams").then(r=>teams=r),api("/api/standings").then(r=>stand=r),api("/api/news").then(r=>news=r)]);draw();loadFav();loadGames();loadRecent();
 setInterval(()=>{if(document.hidden||$("#m").classList.contains("show"))return;if(tab=="Home"||tab=="Scores"){loadGames();if(tab=="Home")loadRecent()}else refreshTick()},20000)})();
