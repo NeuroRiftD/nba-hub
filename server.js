@@ -2,6 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+const APP_V = "v10";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -196,7 +197,7 @@ async function moves() {
   }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
-const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves() };
+const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves(), version: () => ({ v: APP_V }) };
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), m = u.pathname.split("/");
@@ -205,7 +206,7 @@ http.createServer(async (req, res) => {
       const fn = routes[m[2]];
       if (!fn || (["game", "roster", "schedule", "player"].includes(m[2]) && !/^\d+$/.test(m[3] || ""))) { res.writeHead(404); return res.end("{}"); }
       const d = await fn(u.searchParams, m[3]);
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify(d));
     } catch (e) {
       res.writeHead(502, { "content-type": "application/json" });
@@ -214,5 +215,5 @@ http.createServer(async (req, res) => {
     return;
   }
   const f = path.join(__dirname, "public", "index.html");
-  fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); return res.end("Not found"); } res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(b); });
+  fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); return res.end("Not found"); } res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }); res.end(b); });
 }).listen(process.env.PORT || 3000, () => console.log("NBA HUB running on http://localhost:" + (process.env.PORT || 3000)));

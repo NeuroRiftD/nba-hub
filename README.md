@@ -21,3 +21,9 @@ No dependencies. Needs Node 18+.
 - ESPN's endpoints are unofficial and can change without notice. If a section goes blank, check that route in the browser first.
 - For a commercial app, swap in a licensed provider (e.g. Sportradar): rewrite the functions in server.js and keep the same JSON shapes.
 - Team logos and player photos load from ESPN's image servers.
+
+## Updating to a new version
+1. Close the black Command Prompt window (this stops the old server).
+2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
+3. In your browser press Ctrl+F5.
+4. Check the small version tag next to NBA HUB at the top (currently v10). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
