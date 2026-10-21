@@ -43,7 +43,7 @@ async function game(id) {
       }))
     };
   });
-  const plays = (j.plays || []).slice(-60).reverse().map(p => ({ text: p.text, clock: p.clock && p.clock.displayValue, q: p.period && p.period.number, score: p.awayScore != null ? p.awayScore + "-" + p.homeScore : "" }));
+  const plays = (j.plays || []).slice(-600).reverse().map(p => ({ text: p.text, clock: p.clock && p.clock.displayValue, q: p.period && p.period.number, pd: p.period && p.period.displayValue, score: p.awayScore != null ? p.awayScore + "-" + p.homeScore : "", scoring: !!p.scoringPlay, team: p.team && p.team.id }));
   return { teams, plays };
 }
 
@@ -76,7 +76,7 @@ async function roster(id) {
 async function schedule(id) {
   const j = await get(`${E}/teams/${id}/schedule`, 36e5);
   return (j.events || []).map(e => {
-    const c = e.competitions[0], s = status(c.status, e.status), f = h => team(c.competitors.find(x => x.homeAway === h).team);
+    const c = e.competitions[0], s = status(c.status, e.status), f = h => { const x = c.competitors.find(k => k.homeAway === h), sc = x.score == null ? null : +(x.score.displayValue ?? x.score.value ?? x.score); return { ...team(x.team), score: isNaN(sc) ? null : sc }; };
     return { id: e.id, date: e.date, state: s.state || "pre", detail: s.shortDetail || "", home: f("home"), away: f("away") };
   });
 }
@@ -95,8 +95,8 @@ async function standings() {
 
 async function news(q) {
   const t = q.get("team");
-  const j = await get(`${E}/news${t && /^\d+$/.test(t) ? "?team=" + t : ""}`, 3e5);
-  return (j.articles || []).map(a => ({ title: a.headline, text: a.description || "", time: a.published, link: a.links && a.links.web && a.links.web.href, img: a.images && a.images[0] && a.images[0].url }));
+  const j = await get(`${E}/news?limit=40${t && /^\d+$/.test(t) ? "&team=" + t : ""}`, 3e5);
+  return (j.articles || []).filter(a => a.headline).map(a => ({ title: a.headline, text: a.description || "", time: a.published, link: a.links && a.links.web && a.links.web.href, img: a.images && a.images[0] && a.images[0].url }));
 }
 
 async function player(id) {
@@ -140,7 +140,26 @@ async function players() {
   return { cols, rows, desc };
 }
 
-const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players() };
+async function injuryFeed() {
+  const j = await get(`${E}/injuries`, 6e5), out = [];
+  for (const t of j.injuries || []) for (const i of t.injuries || []) {
+    const d = i.details || {}, a = i.athlete || {};
+    out.push({ id: a.id, name: a.displayName || a.fullName || "", pos: (a.position && a.position.abbreviation) || "", team: { id: String(t.id || ""), name: t.displayName || "" }, status: injStatus(i.status), note: [d.type, d.detail, d.side].filter(Boolean).join(" · "), comment: i.shortComment || "", date: i.date || "", ret: d.returnDate || "" });
+  }
+  return out.filter(x => x.name).sort((x, y) => String(y.date).localeCompare(String(x.date)));
+}
+
+async function month(ym) {
+  if (!/^\d{4}-\d{2}$/.test(ym || "")) throw new Error("bad month");
+  const [y, m] = ym.split("-").map(Number), p = n => String(n).padStart(2, "0"), last = new Date(y, m, 0).getDate();
+  const j = await get(`${E}/scoreboard?dates=${y}${p(m)}01-${y}${p(m)}${p(last)}&limit=1000`, 3e5);
+  return (j.events || []).map(e => {
+    const c = e.competitions[0], s = status(e.status, c.status), f = h => { const x = c.competitors.find(k => k.homeAway === h); return { id: x.team.id, abbr: x.team.abbreviation, score: +x.score || 0 }; };
+    return { id: e.id, date: e.date, state: s.state, home: f("home"), away: f("away") };
+  });
+}
+
+const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")) };
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), m = u.pathname.split("/");
