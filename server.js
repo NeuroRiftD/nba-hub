@@ -1,4 +1,4 @@
-// Hardwood NBA server: zero dependencies, Node 18+.  Run: node server.js
+// NBA HUB server: zero dependencies, Node 18+.  Run: node server.js
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -7,7 +7,7 @@ const cache = new Map();
 async function get(url, ttl) {
   const c = cache.get(url);
   if (c && Date.now() - c.t < ttl) return c.v;
-  const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 hardwood-nba" } });
+  const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 nba-hub" } });
   if (!r.ok) throw new Error(r.status + " from data source");
   const v = await r.json();
   cache.set(url, { t: Date.now(), v });
@@ -32,9 +32,11 @@ async function game(id) {
   const teams = ((j.boxscore && j.boxscore.players) || []).map(t => {
     const st = (t.statistics && t.statistics[0]) || {};
     const keyOf = i => [st.labels && st.labels[i], st.names && st.names[i], st.keys && st.keys[i]].filter(Boolean);
+    const mkT = () => { const o = {}; (st.totals || []).forEach((v, i) => keyOf(i).forEach(k => { if (!(k in o)) o[k] = v; })); return o; };
     const mk = a => { const o = {}; (a.stats || []).forEach((v, i) => keyOf(i).forEach(k => { if (!(k in o)) o[k] = v; })); return o; };
     return {
       ...team(t.team),
+      totals: mkT(),
       players: (st.athletes || []).filter(a => !a.didNotPlay && a.stats && a.stats.length).map(a => ({
         id: a.athlete.id, name: a.athlete.displayName, pos: (a.athlete.position && a.athlete.position.abbreviation) || "",
         jersey: a.athlete.jersey || "", starter: !!a.starter, stats: mk(a)
@@ -157,4 +159,4 @@ http.createServer(async (req, res) => {
   }
   const f = path.join(__dirname, "public", "index.html");
   fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); return res.end("Not found"); } res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(b); });
-}).listen(process.env.PORT || 3000, () => console.log("Hardwood running on http://localhost:" + (process.env.PORT || 3000)));
+}).listen(process.env.PORT || 3000, () => console.log("NBA HUB running on http://localhost:" + (process.env.PORT || 3000)));

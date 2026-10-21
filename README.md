@@ -1,4 +1,4 @@
-# Hardwood: live NBA hub
+# NBA HUB: live NBA hub
 
 Scores, box scores with player popups, rosters, standings, team schedule and news, with a "My Team" you can follow.
 No dependencies. Needs Node 18+.
