@@ -32,7 +32,7 @@ No dependencies. Needs Node 18+.
 1. Close the black Command Prompt window (this stops the old server).
 2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
 3. In your browser press Ctrl+F5.
-4. Check the small version tag next to NBA HUB at the top (currently v16). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+4. Check the small version tag next to NBA HUB at the top (currently v17). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
 
 ## Highlights, special events and your team
 - **Video clips** on Home come from YouTube channels' public feeds and play in a popup. There are two tabs: **NBA** (the official NBA channel) and **Others** (every other channel grouped together, newest first, with the channel name on each clip). It ships with House of Highlights, Bleacher Report, NBA on ESPN, Ximo Pierto, FreeDawkins and JxmyHighroller as the Others.
@@ -47,3 +47,6 @@ No dependencies. Needs Node 18+.
   `name` and `team` (the 3-letter code, like IND) are the only required parts. `id` is the number at the end of the player's ESPN page address (espn.com/nba/player/_/id/**5157066**/...); if you leave it out, the app finds it from the roster. `until` is optional: after that date the entry disappears by itself.
 - Your file always wins over ESPN. Delete the entry when the player is back. Changes show up within 10 minutes, or right away if you restart the server.
 - If a status says "out for the season" in ESPN's own notes, it is labelled "Out for season" automatically.
+
+## If the league stats look wrong
+- Open `http://localhost:3000/api/statsdebug` in your browser. It shows exactly what ESPN sends for the league stats (the column names and two sample players). Copy what it shows and send it along, and the stats columns can be matched exactly.

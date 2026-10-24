@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "v16";
+const APP_V = "v17";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -252,6 +252,10 @@ async function player(id) {
   }
 }
 
+// ESPN's own stat names -> our column keys.
+const NAMEMAP = { gamesPlayed: "GP", avgMinutes: "MIN", avgPoints: "PTS", avgRebounds: "REB", avgAssists: "AST", avgSteals: "STL", avgBlocks: "BLK", avgTurnovers: "TO", avgFouls: "PF",
+  fieldGoalPct: "FG%", threePointFieldGoalPct: "3P%", threePointPct: "3P%", freeThrowPct: "FT%", points: "TPTS", rebounds: "TREB", assists: "TAST", steals: "TSTL", blocks: "TBLK" };
+
 async function players() {
   const base = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=50&seasontype=2&season=${seasonYear()}`;
   const sorts = ["offensive.avgPoints", "general.avgRebounds", "offensive.avgAssists", "defensive.avgSteals", "defensive.avgBlocks", "offensive.fieldGoalPct", "offensive.threePointFieldGoalPct", "offensive.freeThrowPct"];
@@ -271,28 +275,38 @@ async function players() {
   for (const { j, q } of res) for (const a of j.athletes || []) {
     const id = a.athlete && a.athlete.id;
     if (!id || seen.has(id)) continue;
-    const v = {};
+    const v = {}, cats = [];
     for (const ac of a.categories || []) {
       const def = (j.categories || []).find(c => c.name === ac.name);
       if (!def) continue;
       const vals = ac.values || ac.totals || [];
       (def.labels || []).forEach((l, i) => {
-        if (!l || l in v) return;
-        const n = parseFloat(vals[i]);
-        v[l] = isNaN(n) ? null : n;
-        if (!order.includes(l)) order.push(l);
-        if (def.descriptions && def.descriptions[i]) desc[l] = def.descriptions[i];
+        const n = parseFloat(String(vals[i]).replace(/,/g, ""));
+        cats.push({ l, name: (def.names || [])[i] || "", n: isNaN(n) ? null : n });
+        if (def.descriptions && def.descriptions[i] && l && !(l in desc)) desc[l] = def.descriptions[i];
       });
     }
-    // If the feed gave season totals instead of per-game numbers (minutes > 48 is impossible per game), convert.
-    if (v.GP && v.MIN > 48) for (const k of ["MIN", "PTS", "REB", "AST", "STL", "BLK"]) if (v[k] != null) { const T = v[k]; v[k] = Math.round(T / v.GP * 10) / 10; if (k !== "MIN") v["T" + k] = T; }
-    // Season totals = per-game average x games played (can be off by a few because averages are rounded).
+    // ESPN can list two stats under one label (REB for the per-game average AND the season total), so go by ESPN's stat NAME first.
+    for (const c of cats) { const k = NAMEMAP[c.name]; if (k && !(k in v)) v[k] = c.n; }
+    for (const c of cats) { if (!c.l || c.l in v || NAMEMAP[c.name]) continue; v[c.l] = c.n; }
+    for (const c of cats) if (c.l && !order.includes(c.l)) order.push(c.l);
+    // Safety nets for a feed that gives season totals where we expect per-game numbers:
+    // minutes above 48 is impossible per game, and so are averages above these caps once a team has played more than one game.
+    if (v.GP > 1 && v.MIN > 48) for (const k of ["MIN", "PTS", "REB", "AST", "STL", "BLK"]) if (v[k] != null) { const T = v[k]; v[k] = Math.round(T / v.GP * 10) / 10; if (k !== "MIN") v["T" + k] = T; }
+    if (v.GP > 1) for (const [k, cap] of [["PTS", 60], ["REB", 30], ["AST", 25], ["STL", 8], ["BLK", 8]]) if (v[k] > cap) { const T = v[k]; v[k] = Math.round(T / v.GP * 10) / 10; v["T" + k] = T; }
+    // Season totals = per-game average x games played, unless ESPN gave us the real total (can be off by a few because averages are rounded).
     [["PTS", "TPTS"], ["REB", "TREB"], ["AST", "TAST"], ["STL", "TSTL"], ["BLK", "TBLK"]].forEach(([k, t]) => { if (v[t] == null && v[k] != null && v.GP) v[t] = Math.round(v[k] * v.GP); });
     seen.set(id, { id, name: a.athlete.displayName, team: a.athlete.teamShortName || "", q, v });
   }
   const rows = [...seen.values()];
   const cols = [...PREF, ...order.filter(l => !PREF.includes(l)), "TPTS", "TREB", "TAST", "TSTL", "TBLK"].filter(c => rows.some(r => r.v[c] != null));
   return { cols, rows, desc, season: seasonLabel(seasonYear()) };
+}
+
+// Troubleshooting: shows exactly what ESPN sends for league stats (column names and the first two players).
+async function statsDebug() {
+  const j = await get(`https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=3&seasontype=2&season=${seasonYear()}&isqualified=false&sort=general.avgRebounds:desc`, 6e4);
+  return { season: seasonYear(), pagination: j.pagination || null, categories: (j.categories || []).map(c => ({ name: c.name, labels: c.labels, names: c.names })), sample: (j.athletes || []).slice(0, 2).map(a => ({ name: a.athlete && a.athlete.displayName, team: a.athlete && a.athlete.teamShortName, categories: a.categories })) };
 }
 
 async function injuryFeed() {
@@ -385,7 +399,7 @@ function eventsList() {
   return (Array.isArray(a) ? a : []).filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date)) && typeof x.title === "string").map(x => ({ date: x.date, title: x.title.slice(0, 80), kind: String(x.kind || "Event").slice(0, 20), note: String(x.note || "").slice(0, 120) })).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves(), version: () => ({ v: APP_V }), highlights: () => highlights(), events: () => eventsList() };
+const routes = { scoreboard: (q) => scoreboard(q), game: (q, a) => game(a), teams: () => teamsList(), roster: (q, a) => roster(a), schedule: (q, a) => schedule(a), standings: () => standings(), news: (q) => news(q), player: (q, a) => player(a), players: () => players(), statsdebug: () => statsDebug(), injuries: () => injuryFeed(), month: (q) => month(q.get("ym")), live: () => live(), recent: () => recent(), moves: () => moves(), version: () => ({ v: APP_V }), highlights: () => highlights(), events: () => eventsList() };
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), m = u.pathname.split("/");
