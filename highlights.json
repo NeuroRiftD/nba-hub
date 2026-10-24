@@ -1,6 +1,11 @@
 {
   "youtube": [
-    { "name": "NBA", "channelId": "UCWJ2lWNubArHWmf3FIHbfcQ" },
-    { "name": "House of Highlights", "channelId": "UCqQo7ewe87aYAe7ub5UqXMw" }
+    { "name": "NBA", "channelId": "UCWJ2lWNubArHWmf3FIHbfcQ", "group": "NBA" },
+    { "name": "House of Highlights", "channelId": "UCqQo7ewe87aYAe7ub5UqXMw" },
+    { "name": "Bleacher Report", "channelId": "UC9-OpMMVoNP5o10_Iyq7Ndw" },
+    { "name": "NBA on ESPN", "channelId": "UCVSSpcmZD2PwPBqb8yKQKBA" },
+    { "name": "Ximo Pierto", "channelId": "UCS7kvhJx431xCKuSgkBaUWw" },
+    { "name": "FreeDawkins", "channelId": "UCEjOSbbaOfgnfRODEEMYlCw" },
+    { "name": "JxmyHighroller", "channelId": "UC3L9XPe0_FGfRG-CMGtBvFg" }
   ]
 }

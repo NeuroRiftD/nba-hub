@@ -35,7 +35,7 @@ main{padding-bottom:84px}
 .seg{display:flex;margin-bottom:8px;border:1px solid var(--bd);border-radius:6px;overflow:hidden}.seg button{flex:1;border:0;background:none;padding:6px;cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
 .tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12px}
 th,td{padding:7px 5px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
-tr.p{cursor:pointer}tr.p td:first-child{color:var(--acc);font-weight:600}
+tr.sh td{background:var(--card);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.06em;text-align:left;padding:6px 8px}tr.p{cursor:pointer}tr.p td:first-child{color:var(--acc);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.grid .card{display:grid;grid-template-columns:34px minmax(0,1fr);gap:6px 8px;align-items:center;cursor:pointer;min-width:0}.grid .card .nm{min-width:0;overflow-wrap:anywhere}.grid .card .rb{grid-column:1/-1;width:100%;box-sizing:border-box;margin:0;padding:5px 8px;text-align:center}.grid .on{border-color:var(--acc)}
 .row{display:flex;gap:8px;align-items:center;margin:6px 0}.row .tm{margin-left:auto;color:var(--mut)}
 .chip{border:1px solid var(--bd);background:var(--card);padding:6px 14px;border-radius:99px;cursor:pointer;margin-right:6px}.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
@@ -100,7 +100,7 @@ tr.tot td{font-weight:700;border-top:2px solid var(--bd);background:var(--bg)}
 .hlc b{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .vp{position:relative;aspect-ratio:16/9;width:100%;border-radius:10px;overflow:hidden;background:#000}.vp iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 </style></head><body>
-<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v15</span></h1><div class="tabs" id="tabs"></div><button class="chip favb" id="favbtn" title="Choose or change your team" onclick="pickTeam()">★ Pick your team</button></div></header>
+<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v16</span></h1><div class="tabs" id="tabs"></div><button class="chip favb" id="favbtn" title="Choose or change your team" onclick="pickTeam()">★ Pick your team</button></div></header>
 <div class="wrap"><div id="vb"></div><div class="tick" id="tick"></div></div>
 <main class="wrap" id="main"></main>
 <nav class="bn" id="bn"></nav>
@@ -113,7 +113,7 @@ let tab="Home",date=new Date().toLocaleDateString("en-CA",{timeZone:"America/New
 let bsort=null,bdir=-1,boxErr="",pstats=null,ploading=false,perr="",psort="PTS",pdir=-1,sview="players";
 let sdate=date,sgames=[],schTeam="",tsch={},schErr="",sload=false,hconf="",cm=date.slice(0,7),mcache={},live=[],recent=[];
 let fav=null;try{fav=JSON.parse(localStorage.getItem("fav"))}catch(e){}
-let evs=null,hl=null,hlErr="",hlLoading=false,hlCh="",hlView=[],stT="";
+let evs=null,hl=null,hlErr="",hlLoading=false,hlG="",hlView=[],stT="";
 const L=(t,s=34)=>t?`<img src="${esc(t.logo)}" alt="${esc(t.abbr)}" width="${s}" height="${s}" style="object-fit:contain" onerror="this.replaceWith(document.createTextNode(this.alt))">`:"";
 const lbl=d=>new Date(d+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
 const etD=d=>new Date(d).toLocaleDateString("en-CA",{timeZone:"America/New_York"});
@@ -147,13 +147,18 @@ const pre=g.state=="pre",head=`<div class="ph"><div>${L(g.away,44)}<small>${esc(
 if(pre)return`<div id="gp" class="pn">${head}<div class="note">The box score appears at tip-off.</div></div>`;
 if(!box)return`<div id="gp" class="pn">${head}${boxErr?`<div class="note">Couldn't load the box score (${esc(boxErr)}). <button class="chip" onclick="pick('${g.id}')">Retry</button></div>`:`<div class="note">Loading box score…</div>`}</div>`;
 const t=box.teams.find(x=>x.id==(side=="home"?g.home.id:g.away.id));
-const body=sub=="box"?`<div class="seg"><button class="${side=="away"?"on":""}" onclick="side='away';draw()">${esc(g.away.name.split(" ").pop())}</button><button class="${side=="home"?"on":""}" onclick="side='home';draw()">${esc(g.home.name.split(" ").pop())}</button></div>`+(t&&t.players.length?`<div class="tw"><table><tr><th class="s" onclick="bsortBy(null)">PLAYER</th>${BC.map(k=>`<th class="s ${bsort==k?"on":""}" onclick="bsortBy('${k}')">${k}${bsort==k?(bdir<0?" ▼":" ▲"):""}</th>`).join("")}</tr>${bsorted(t.players).map(p=>`<tr class="p" onclick="pl('${p.id}')"><td><span class="jn">${esc(p.jersey)}</span>${esc(p.name)}</td>${BC.map(k=>`<td${bsort==k?' style="font-weight:700"':""}>${esc(k=="POS"?(p.pos||"–"):(p.stats[k]??"–"))}</td>`).join("")}</tr>`).join("")}${totRow(t)}</table></div><div style="color:var(--mut);font-size:11px;margin-top:6px">Tap a column heading to sort, or a player for their stats.</div>`:`<div class="note">No box score data yet.</div>`):pbp(g);
+const body=sub=="box"?`<div class="seg"><button class="${side=="away"?"on":""}" onclick="side='away';draw()">${esc(g.away.name.split(" ").pop())}</button><button class="${side=="home"?"on":""}" onclick="side='home';draw()">${esc(g.home.name.split(" ").pop())}</button></div>`+(t&&t.players.length?`<div class="tw"><table><tr><th class="s" onclick="bsortBy(null)">PLAYER</th>${BC.map(k=>`<th class="s ${bsort==k?"on":""}" onclick="bsortBy('${k}')">${k}${bsort==k?(bdir<0?" ▼":" ▲"):""}</th>`).join("")}</tr>${boxRows(t,g)}${totRow(t)}</table></div><div style="color:var(--mut);font-size:11px;margin-top:6px">Tap a column heading to sort, or a player for their stats.${g.state=="in"?(t.players.some(p=>p.court)?" On-court players are worked out from the substitutions, so they can lag a few seconds.":" The live lineup isn't available right now."):""}</div>`:`<div class="note">No box score data yet.</div>`):pbp(g);
 return`<div id="gp" class="pn">${head}<div class="st"><button class="${sub=="box"?"on":""}" onclick="sub='box';draw()">Box Score</button><button class="${sub=="pbp"?"on":""}" onclick="sub='pbp';draw()">Play-by-Play</button></div>${body}</div>`}
 function gamesSec(){return`<div class="sec"><h2>Games</h2><div class="dn"><button onclick="shift(-1)">‹</button><b>${esc(lbl(date))}</b><button onclick="shift(1)">›</button></div></div>${err?`<div class="note">${esc(err)}</div>`:""}<div class="tg"><div class="gl">${[...live.filter(l=>!games.some(g=>g.id==l.id)),...games].map(gi).join("")||`<div class="note" style="margin:0">No games</div>`}</div>${panel()}</div>`}
 function teamsTab(){return`<div class="note">Tap a team to make it My Team. Tap Roster to see its players.</div><div class="grid">${teams.map(t=>`<div class="card ${fav&&fav.id==t.id?"on":""}" onclick="setFav('${t.id}')">${L(t,34)}<div class="nm"><b>${esc(t.abbr)}</b><div style="color:var(--mut);font-size:11px">${esc(t.name)}</div></div><button class="chip rb" onclick="event.stopPropagation();roster('${t.id}')">Roster</button></div>`).join("")}</div>`}
 const PO={PG:1,SG:2,SF:3,PF:4,C:5,G:1.5,F:3.5};
 const BC=["POS","MIN","PTS","REB","AST","STL","BLK","PF","TO","FG","3PT","FT"];
 const bv=(p,k)=>{if(k=="POS")return PO[p.pos]||99;const n=parseFloat(p.stats[k]);return isNaN(n)?-1e9:n};
+const brow=p=>`<tr class="p" onclick="pl('${p.id}')"><td><span class="jn">${esc(p.jersey)}</span>${esc(p.name)}</td>${BC.map(k=>`<td${bsort==k?' style="font-weight:700"':""}>${esc(k=="POS"?(p.pos||"–"):(p.stats[k]??"–"))}</td>`).join("")}</tr>`;
+function boxRows(t,g){
+if(!(g&&g.state=="in"&&t.players.some(p=>p.court)))return bsorted(t.players).map(brow).join("");
+const c=t.players.filter(p=>p.court),b=t.players.filter(p=>!p.court),sh=l=>`<tr class="sh"><td colspan="${BC.length+1}">${l}</td></tr>`;
+return sh("ON COURT")+(bsort?bsorted(c):[...c].sort((x,y)=>(PO[x.pos]||9)-(PO[y.pos]||9))).map(brow).join("")+(b.length?sh("BENCH"):"")+bsorted(b).map(brow).join("")}
 const bsorted=a=>bsort?[...a].sort((x,y)=>(bv(x,bsort)-bv(y,bsort))*bdir):a;
 function bsortBy(k){if(k==null)bsort=null;else if(bsort==k)bdir*=-1;else{bsort=k;bdir=k=="POS"?1:-1}draw()}
 function openGame(id){sel=id;box=null;boxErr="";side="away";sub="box";tab="Scores";draw();scrollTo(0,0);loadBox()}
@@ -233,12 +238,12 @@ async function loadHL(){if(hlLoading)return;hlLoading=true;try{hl=await api("/ap
 function playClip(i){const v=hlView[i];if(!v)return;const nx=hlView[i+1],pv=hlView[i-1];
 open(`<div style="margin-top:34px"><div class="vp"><iframe src="https://www.youtube-nocookie.com/embed/${esc(v.id)}?autoplay=1&rel=0&playsinline=1" title="${esc(v.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div><b style="display:block;margin-top:8px">${esc(v.title)}</b><div style="color:var(--mut);font-size:12px">${esc(v.channel)} · ${ago(v.time)}</div><div style="display:flex;gap:6px;margin-top:10px">${pv?`<button class="chip" onclick="playClip(${i-1})">‹ Newer</button>`:""}${nx?`<button class="chip" onclick="playClip(${i+1})">Older ›</button>`:""}</div></div>`)}
 function hlCard(){
-const V0=(hl&&hl.videos)||[],seen=new Set(V0.map(v=>v.channel)),chs=((hl&&hl.channels)||[...seen]).filter(c=>seen.has(c));
-if(hlCh&&!chs.includes(hlCh))hlCh="";
-const V=(hlCh?V0.filter(v=>v.channel==hlCh):V0).slice(0,14);hlView=V;
-const chips=chs.length>1?`<div style="margin:0 0 6px"><button class="chip ${hlCh?"":"on"}" style="margin:0 4px 4px 0" onclick="hlCh='';draw()">All</button>${chs.map(c=>`<button class="chip ${hlCh==c?"on":""}" style="margin:0 4px 4px 0" data-c="${esc(c)}" onclick="hlCh=this.dataset.c;draw()">${esc(c)}</button>`).join("")}</div>`:"";
+const V0=(hl&&hl.videos)||[],nN=V0.filter(v=>v.group=="NBA").length,nO=V0.length-nN;
+const g=hlG||(nN||!nO?"NBA":"Others");   // nothing chosen yet: NBA, unless it has no clips and Others does
+const V=V0.filter(v=>(v.group=="NBA")==(g=="NBA")).slice(0,g=="NBA"?14:24);hlView=V;
+const chips=`<div style="margin:0 0 6px">${["NBA","Others"].map(x=>`<button class="chip ${g==x?"on":""}" style="margin:0 4px 4px 0" onclick="hlG='${x}';draw()">${x}</button>`).join("")}</div>`;
 const head=`<div class="sec" style="margin:14px 0 8px"><h2>Highlights</h2></div>`+chips;
-const body=hlErr?`<div class="note">Couldn't load highlights (${esc(hlErr)}). <button class="chip" onclick="hl=null;hlErr='';loadHL();draw()">Retry</button></div>`:!hl?`<div class="note">Loading highlights…</div>`:V.length?`<div class="hs">${V.map((v,i)=>`<div class="card hlc" onclick="playClip(${i})"><img src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b><div style="color:var(--mut);font-size:11px;margin-top:4px">▶ ${esc(v.channel)} · ${ago(v.time)}</div></div>`).join("")}</div>`:`<div class="note">${hl.feedError?"Couldn't reach the video feed ("+esc(hl.feedError)+").":"No clips found."} <button class="chip" onclick="hl=null;loadHL();draw()">Retry</button></div>`;
+const body=hlErr?`<div class="note">Couldn't load highlights (${esc(hlErr)}). <button class="chip" onclick="hl=null;hlErr='';loadHL();draw()">Retry</button></div>`:!hl?`<div class="note">Loading highlights…</div>`:V.length?`<div class="hs">${V.map((v,i)=>`<div class="card hlc" onclick="playClip(${i})"><img src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b><div style="color:var(--mut);font-size:11px;margin-top:4px">▶ ${esc(v.channel)} · ${ago(v.time)}</div></div>`).join("")}</div>`:`<div class="note">${hl.feedError?"Couldn't reach the video feed ("+esc(hl.feedError)+").":"No clips found in this tab."} <button class="chip" onclick="hl=null;loadHL();draw()">Retry</button></div>`;
 return head+body}
 
 // ===== Favourite team picker =====
@@ -313,7 +318,7 @@ function draw(){const nb=f=>TABS.map(([t,i])=>`<button class="${t==tab?"on":""}"
 $("#favbtn").innerHTML=fav?`${L(fav,20)} <b>${esc(fav.abbr)}</b>`:"★ Pick your team";
 $("#main").innerHTML={Home:homeTab,Scores:gamesSec,Schedule:schedule,Teams:teamsTab,Stats:statsTab,Leaders:leadersTab,News:newsTab}[tab]();
 saveState()}
-const APP_V="v15";
+const APP_V="v16";
 async function chkVer(){try{const j=await api("/api/version");if(j.v!==APP_V)throw 0}catch(e){$("#vb").innerHTML='<div class="note" style="border-color:var(--live);color:var(--fg);margin-top:10px"><b>Your server is out of date.</b> Close the black window, run <code>node server.js</code> again from the newest nba-hub folder, then press Ctrl+F5 in your browser.</div>'}}
 (async()=>{restoreState();draw();chkVer();loadHL();ensureInj();await Promise.allSettled([api("/api/teams").then(r=>teams=r),api("/api/standings").then(r=>stand=r),api("/api/news").then(r=>news=r)]);
 if(fav&&teams.length)fav=teams.find(x=>x.id==fav.id)||null;

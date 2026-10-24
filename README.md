@@ -12,6 +12,9 @@ No dependencies. Needs Node 18+.
 2. Create a new Web Service from the repo. Start command: `node server.js` (no build step).
 3. The host sets PORT for you. Open the URL it gives you.
 
+## Live box score
+- While a game is in progress, the box score shows the five players on the floor in their own **On Court** section at the top, with everyone else under **Bench**. ESPN doesn't publish who is on the floor, so the app starts from the starting five and replays the substitutions in the play-by-play. It can lag a few seconds. If the substitutions don't add up (for example a name it can't match), it shows the normal table and says the live lineup isn't available.
+
 ## Stats
 - On the Stats tab, use the team box above the table to switch between All NBA and a single team (or tap ★ My team). Tap the TEAM heading to sort A to Z. Percent columns list players with enough games first.
 
@@ -29,10 +32,11 @@ No dependencies. Needs Node 18+.
 1. Close the black Command Prompt window (this stops the old server).
 2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
 3. In your browser press Ctrl+F5.
-4. Check the small version tag next to NBA HUB at the top (currently v15). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+4. Check the small version tag next to NBA HUB at the top (currently v16). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
 
 ## Highlights, special events and your team
-- **Video clips** on Home come from YouTube channels' public feeds and play in a popup. It ships with the NBA and House of Highlights; tap a channel name above the clips to see just that channel. To add or remove channels, edit `highlights.json` (a channel's id is the long code that starts with UC; you can find it on the channel's About page under Share > Copy channel ID). House of Highlights covers other sports too, so it isn't only basketball.
+- **Video clips** on Home come from YouTube channels' public feeds and play in a popup. There are two tabs: **NBA** (the official NBA channel) and **Others** (every other channel grouped together, newest first, with the channel name on each clip). It ships with House of Highlights, Bleacher Report, NBA on ESPN, Ximo Pierto, FreeDawkins and JxmyHighroller as the Others.
+- To add or remove channels, edit `highlights.json`: one line per channel, with a `name` and a `channelId` (the long code that starts with UC; find it on the channel's About page under Share > Copy channel ID). A channel with `"group": "NBA"` goes in the NBA tab; the rest go in Others. If a channel's id is wrong or its feed is down, that channel is skipped and the rest still show.
 - **events.json** lists events that ESPN's schedule leaves out, such as the All-Star Saturday contests. Add or change lines there and they get a star on the Schedule calendar.
 - **My Team** and your place on the page are remembered in your own browser. There are no accounts.
 

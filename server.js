@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "v15";
+const APP_V = "v16";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -55,10 +55,41 @@ async function scoreboard(q) {
   });
 }
 
+// Who is on the floor right now. ESPN doesn't publish it, so start from each team's starting five and replay the
+// "X enters the game for Y" substitutions. If anything doesn't add up (not exactly five per team, a name we can't match), return null.
+function onCourt(j, raw) {
+  const plays = j.plays || [];
+  if (!plays.length || raw.length !== 2) return null;
+  const byName = new Map(), cur = new Map();
+  for (const t of raw) {
+    const st = t.athletes.filter(a => a.starter);
+    if (st.length !== 5) return null;
+    cur.set(t.teamId, new Set(st.map(a => a.id)));
+    for (const a of t.athletes) byName.set(normName(a.name), { id: a.id, tid: t.teamId });
+  }
+  const SUB = /^(.+?) enters the game for (.+?)\.?\s*$/i;
+  for (const p of plays) {
+    const m = SUB.exec(String(p.text || ""));
+    if (!m) continue;
+    const inn = byName.get(normName(m[1])), out = byName.get(normName(m[2]));
+    if (!inn || !out || inn.tid !== out.tid) return null;
+    const set = cur.get(inn.tid);
+    set.delete(out.id);
+    set.add(inn.id);
+  }
+  const res = {};
+  for (const [tid, set] of cur) { if (set.size !== 5) return null; res[tid] = set; }
+  return res;
+}
+
 async function game(id) {
   if (!/^\d+$/.test(id)) throw new Error("bad id");
   const j = await get(`${E}/summary?event=${id}`, 15e3);
+  const hdr = (((j.header || {}).competitions || [])[0] || {}).status, gstate = (hdr && hdr.type && hdr.type.state) || "";
+  const raw = ((j.boxscore && j.boxscore.players) || []).map(t => ({ teamId: String(t.team && t.team.id), athletes: (((t.statistics && t.statistics[0]) || {}).athletes || []).filter(a => a.athlete).map(a => ({ id: String(a.athlete.id), name: a.athlete.displayName || "", starter: !!a.starter })) }));
+  const oc = gstate === "pre" || gstate === "post" ? null : onCourt(j, raw);
   const teams = ((j.boxscore && j.boxscore.players) || []).map(t => {
+    const court = oc && oc[String(t.team && t.team.id)];
     const st = (t.statistics && t.statistics[0]) || {};
     const keyOf = i => [st.labels && st.labels[i], st.names && st.names[i], st.keys && st.keys[i]].filter(Boolean);
     const mkT = () => { const o = {}; (st.totals || []).forEach((v, i) => keyOf(i).forEach(k => { if (!(k in o)) o[k] = v; })); return o; };
@@ -66,14 +97,14 @@ async function game(id) {
     return {
       ...team(t.team),
       totals: mkT(),
-      players: (st.athletes || []).filter(a => !a.didNotPlay && a.stats && a.stats.length).map(a => ({
+      players: (st.athletes || []).filter(a => (!a.didNotPlay && a.stats && a.stats.length) || (court && court.has(String(a.athlete.id)))).map(a => ({
         id: a.athlete.id, name: a.athlete.displayName, pos: (a.athlete.position && a.athlete.position.abbreviation) || "",
-        jersey: a.athlete.jersey || "", starter: !!a.starter, stats: mk(a)
+        jersey: a.athlete.jersey || "", starter: !!a.starter, court: !!(court && court.has(String(a.athlete.id))), stats: mk(a)
       }))
     };
   });
   const plays = (j.plays || []).slice(-600).reverse().map(p => ({ text: p.text, clock: p.clock && p.clock.displayValue, q: p.period && p.period.number, pd: p.period && p.period.displayValue, score: p.awayScore != null ? p.awayScore + "-" + p.homeScore : "", scoring: !!p.scoringPlay, team: p.team && p.team.id }));
-  return { teams, plays };
+  return { teams, plays, onCourt: !!oc };
 }
 
 const teamsList = async () => {
@@ -320,7 +351,7 @@ async function moves() {
 
 const readJson = (file, dflt) => { try { return JSON.parse(fs.readFileSync(path.join(__dirname, file), "utf8")); } catch (_) { return dflt; } };
 const decodeXml = t => String(t || "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'");
-const HL_DEFAULT = { youtube: [{ name: "NBA", channelId: "UCWJ2lWNubArHWmf3FIHbfcQ" }, { name: "House of Highlights", channelId: "UCqQo7ewe87aYAe7ub5UqXMw" }] };
+const HL_DEFAULT = { youtube: [{ name: "NBA", channelId: "UCWJ2lWNubArHWmf3FIHbfcQ", group: "NBA" }, { name: "House of Highlights", channelId: "UCqQo7ewe87aYAe7ub5UqXMw" }] };
 
 // Newest uploads from a YouTube channel's public RSS feed (no key needed).
 async function ytFeed(ch) {
@@ -339,12 +370,13 @@ async function ytFeed(ch) {
 
 async function highlights() {
   const cfg = readJson("highlights.json", HL_DEFAULT);
-  const chans = (Array.isArray(cfg.youtube) ? cfg.youtube : HL_DEFAULT.youtube).filter(c => c && /^UC[\w-]{20,}$/.test(String(c.channelId))).slice(0, 6);
+  const chans = (Array.isArray(cfg.youtube) ? cfg.youtube : HL_DEFAULT.youtube).filter(c => c && /^UC[\w-]{20,}$/.test(String(c.channelId))).slice(0, 12);
   const res = await Promise.allSettled(chans.map(ytFeed));
-  // newest 10 from each channel, so a channel that posts a lot can't push the others off the list
-  const videos = res.filter(r => r.status === "fulfilled").flatMap(r => r.value.slice(0, 10)).sort((a, b) => String(b.time).localeCompare(String(a.time)));
+  // Two groups: the official NBA channel ("group": "NBA" in highlights.json) and everything else ("Others").
+  // Newest few from each channel, so a channel that posts a lot can't push the others off the list.
+  const videos = res.flatMap((r, i) => r.status === "fulfilled" ? r.value.slice(0, chans[i].group === "NBA" ? 12 : 8).map(v => ({ ...v, group: chans[i].group === "NBA" ? "NBA" : "Others" })) : []).sort((a, b) => String(b.time).localeCompare(String(a.time)));
   const errs = res.filter(r => r.status === "rejected").map(r => r.reason && r.reason.message);
-  return { videos, channels: chans.map(c => String(c.name || c.channelId).slice(0, 40)), feedError: videos.length ? "" : (errs[0] || "") };
+  return { videos, feedError: videos.length ? "" : (errs[0] || "") };
 }
 
 // Events ESPN's schedule doesn't list (All-Star Saturday contests etc.), kept in events.json so you can edit them.
