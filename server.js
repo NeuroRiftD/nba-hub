@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "v17";
+const APP_V = "1.0";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -368,24 +368,81 @@ const decodeXml = t => String(t || "").replace(/&amp;/g, "&").replace(/&lt;/g, "
 const HL_DEFAULT = { youtube: [{ name: "NBA", channelId: "UCWJ2lWNubArHWmf3FIHbfcQ", group: "NBA" }, { name: "House of Highlights", channelId: "UCqQo7ewe87aYAe7ub5UqXMw" }] };
 
 // Newest uploads from a YouTube channel's public RSS feed (no key needed).
-async function ytFeed(ch) {
-  const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.channelId}`, c = cache.get(url);
-  if (c && Date.now() - c.t < 6e5) return c.v;
-  const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 nba-hub" } });
-  if (!r.ok) throw new Error(`${r.status} from YouTube for ${ch.name || ch.channelId}`);
-  const xml = await r.text(), author = ch.name ? String(ch.name).slice(0, 40) : decodeXml((xml.match(/<author>\s*<name>([^<]*)<\/name>/) || [])[1] || "");
-  const v = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(m => {
+// YouTube's feeds answer "404" every now and then even for good channels, so: try the channel feed, then the same
+// channel's uploads-playlist feed, wait a moment and try again; never hammer a feed that just failed; and if it
+// still won't answer, show the last clips we got (kept in memory and in .highlights-cache.json) instead of an error.
+const YT_FILE = path.join(__dirname, ".highlights-cache.json");
+let ytDisk = null, ytSaveTimer = null;
+const ytLoad = () => { if (!ytDisk) { try { ytDisk = JSON.parse(fs.readFileSync(YT_FILE, "utf8")) || {}; } catch (_) { ytDisk = {}; } } return ytDisk; };
+const ytSave = () => { clearTimeout(ytSaveTimer); ytSaveTimer = setTimeout(() => { try { fs.writeFileSync(YT_FILE, JSON.stringify(ytDisk)); } catch (_) {} }, 2000); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const ytInflight = new Map();
+
+function parseYt(xml, name) {
+  const author = name ? String(name).slice(0, 40) : decodeXml((xml.match(/<author>\s*<name>([^<]*)<\/name>/) || [])[1] || "");
+  return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(m => {
     const b = m[1], id = (b.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1];
     return id && /^[\w-]{11}$/.test(id) ? { id, title: decodeXml((b.match(/<title>([^<]*)<\/title>/) || [])[1]), time: (b.match(/<published>([^<]+)<\/published>/) || [])[1] || "", channel: author } : null;
   }).filter(Boolean);
-  cache.set(url, { t: Date.now(), v });
-  return v;
+}
+
+async function ytFetch(ch) {
+  const id = ch.channelId, urls = [`https://www.youtube.com/feeds/videos.xml?channel_id=${id}`, `https://www.youtube.com/feeds/videos.xml?playlist_id=UU${id.slice(2)}`];
+  let last = null;
+  for (const [i, delay] of [0, 0, 800, 0].entries()) {
+    if (delay) await sleep(delay);
+    try {
+      const r = await fetch(urls[i % 2], { headers: { "user-agent": "Mozilla/5.0 nba-hub" }, signal: AbortSignal.timeout(8000) });
+      if (!r.ok) throw new Error(`${r.status} from YouTube for ${ch.name || id}`);
+      const v = parseYt(await r.text(), ch.name);
+      if (!v.length) throw new Error(`no videos in the feed for ${ch.name || id}`);
+      return v;
+    } catch (e) { last = e; }
+  }
+  throw last;
+}
+
+async function ytFeed(ch) {
+  const id = ch.channelId, key = "yt:" + id, c = cache.get(key);
+  if (c && Date.now() - c.t < 6e5) return c.v;
+  if (ytInflight.has(id)) return ytInflight.get(id);
+  const p = (async () => {
+    const bad = cache.get(key + ":fail");
+    try {
+      if (bad && Date.now() - bad.t < 3e4) throw bad.e;                // it just failed: don't ask again for 30 seconds
+      const v = await ytFetch(ch);
+      cache.set(key, { t: Date.now(), v });
+      ytLoad()[id] = { t: Date.now(), v };
+      ytSave();
+      return v;
+    } catch (e) {
+      cache.set(key + ":fail", { t: bad && bad.e === e ? bad.t : Date.now(), e });
+      const old = (c && c.v) || (ytLoad()[id] && Date.now() - ytLoad()[id].t < 7 * 864e5 && ytLoad()[id].v);
+      if (old && old.length) return old;                                // last clips we had
+      throw e;
+    }
+  })().finally(() => ytInflight.delete(id));
+  ytInflight.set(id, p);
+  return p;
+}
+
+// Run fn over items, at most n at a time (gentler on YouTube than all channels at once). Same result shape as Promise.allSettled.
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (next < items.length) {
+      const k = next++;
+      try { out[k] = { status: "fulfilled", value: await fn(items[k]) }; } catch (e) { out[k] = { status: "rejected", reason: e }; }
+    }
+  }));
+  return out;
 }
 
 async function highlights() {
   const cfg = readJson("highlights.json", HL_DEFAULT);
   const chans = (Array.isArray(cfg.youtube) ? cfg.youtube : HL_DEFAULT.youtube).filter(c => c && /^UC[\w-]{20,}$/.test(String(c.channelId))).slice(0, 12);
-  const res = await Promise.allSettled(chans.map(ytFeed));
+  const res = await mapLimit(chans, 3, ytFeed);
   // Two groups: the official NBA channel ("group": "NBA" in highlights.json) and everything else ("Others").
   // Newest few from each channel, so a channel that posts a lot can't push the others off the list.
   const videos = res.flatMap((r, i) => r.status === "fulfilled" ? r.value.slice(0, chans[i].group === "NBA" ? 12 : 8).map(v => ({ ...v, group: chans[i].group === "NBA" ? "NBA" : "Others" })) : []).sort((a, b) => String(b.time).localeCompare(String(a.time)));

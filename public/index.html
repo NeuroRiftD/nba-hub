@@ -1,8 +1,8 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>NBA HUB</title>
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef1f6;--fg:#0f1623;--mut:#5d6677;--card:#fff;--bd:#d9dee8;--acc:#1d7cf2;--live:#e5364b;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#070b17;--fg:#f2f5fb;--mut:#8f9ab0;--card:#0e1526;--bd:#1b2540;--acc:#2a7de1;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#070b17;--fg:#f2f5fb;--mut:#8f9ab0;--card:#0e1526;--bd:#1b2540;--acc:#2a7de1;color-scheme:dark}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eceef1;--fg:#14171c;--mut:#5f6672;--card:#fff;--bd:#d8dbe0;--acc:#1d7cf2;--live:#e5364b;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17191d;--fg:#f3f4f6;--mut:#9ba1ab;--card:#22252a;--bd:#353941;--acc:#2a7de1;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17191d;--fg:#f3f4f6;--mut:#9ba1ab;--card:#22252a;--bd:#353941;--acc:#2a7de1;color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif}
 button,select{font:inherit;color:inherit}a{color:inherit;text-decoration:none}
@@ -100,7 +100,7 @@ tr.tot td{font-weight:700;border-top:2px solid var(--bd);background:var(--bg)}
 .hlc b{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .vp{position:relative;aspect-ratio:16/9;width:100%;border-radius:10px;overflow:hidden;background:#000}.vp iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 </style></head><body>
-<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v17</span></h1><div class="tabs" id="tabs"></div><button class="chip favb" id="favbtn" title="Choose or change your team" onclick="pickTeam()">★ Pick your team</button></div></header>
+<header><div class="wrap hd2"><h1 onclick="go('Home')" style="cursor:pointer" title="Home">NBA <span>HUB</span><span class="ver">v1.0</span></h1><div class="tabs" id="tabs"></div><button class="chip favb" id="favbtn" title="Choose or change your team" onclick="pickTeam()">★ Pick your team</button></div></header>
 <div class="wrap"><div id="vb"></div><div class="tick" id="tick"></div></div>
 <main class="wrap" id="main"></main>
 <nav class="bn" id="bn"></nav>
@@ -234,7 +234,11 @@ const opts=`<option value="">All teams</option>`+[...new Map(mv.filter(x=>x.team
 const A=mv.filter(x=>(mvK=="all"||x.kind==mvK)&&(!mvT||(x.team&&x.team.id==mvT)));
 return`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><div>${K.map(([k,l])=>`<button class="chip ${mvK==k?"on":""}" onclick="mvK='${k}';draw()">${l}</button>`).join("")}</div><select class="sel" onchange="mvT=this.value;draw()">${opts}</select></div>`+(A.length?A.map(x=>{const ok=x.date&&!isNaN(new Date(x.date));return`<div class="card" style="margin:6px 0"><div class="row" style="margin:0;align-items:flex-start">${x.team?L(x.team,26):""}<div style="flex:1">${esc(x.text)}<div style="color:var(--mut);font-size:12px;margin-top:2px">${x.team?esc(x.team.name):""}${ok?" · "+esc(lbl(etD(x.date))):""}</div></div><span class="inj ${cls[x.kind]||""}">${esc(x.kind)}</span></div></div>`}).join(""):`<div class="note">No roster moves found.</div>`)}
 // ===== Highlights (YouTube clips fill in automatically; X posts are added by link and play in place) =====
-async function loadHL(){if(hlLoading)return;hlLoading=true;try{hl=await api("/api/highlights");hlErr=""}catch(e){hlErr=e.message||"error"}hlLoading=false;if(tab=="Home")draw()}
+let hlTry=0,hlTimer=null;
+const hlSig=()=>JSON.stringify(((hl&&hl.videos)||[]).map(v=>v.id))+hlErr+((hl&&hl.feedError)||"");
+async function loadHL(){if(hlLoading)return;hlLoading=true;const before=hlSig();try{hl=await api("/api/highlights");hlErr=""}catch(e){hlErr=e.message||"error"}hlLoading=false;
+if(tab=="Home"&&hlSig()!=before)draw();
+clearTimeout(hlTimer);const has=hl&&hl.videos&&hl.videos.length;if(has)hlTry=0;else if(hlTry++<8)hlTimer=setTimeout(loadHL,30000)}
 function playClip(i){const v=hlView[i];if(!v)return;const nx=hlView[i+1],pv=hlView[i-1];
 open(`<div style="margin-top:34px"><div class="vp"><iframe src="https://www.youtube-nocookie.com/embed/${esc(v.id)}?autoplay=1&rel=0&playsinline=1" title="${esc(v.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div><b style="display:block;margin-top:8px">${esc(v.title)}</b><div style="color:var(--mut);font-size:12px">${esc(v.channel)} · ${ago(v.time)}</div><div style="display:flex;gap:6px;margin-top:10px">${pv?`<button class="chip" onclick="playClip(${i-1})">‹ Newer</button>`:""}${nx?`<button class="chip" onclick="playClip(${i+1})">Older ›</button>`:""}</div></div>`)}
 function hlCard(){
@@ -243,7 +247,7 @@ const g=hlG||(nN||!nO?"NBA":"Others");   // nothing chosen yet: NBA, unless it h
 const V=V0.filter(v=>(v.group=="NBA")==(g=="NBA")).slice(0,g=="NBA"?14:24);hlView=V;
 const chips=`<div style="margin:0 0 6px">${["NBA","Others"].map(x=>`<button class="chip ${g==x?"on":""}" style="margin:0 4px 4px 0" onclick="hlG='${x}';draw()">${x}</button>`).join("")}</div>`;
 const head=`<div class="sec" style="margin:14px 0 8px"><h2>Highlights</h2></div>`+chips;
-const body=hlErr?`<div class="note">Couldn't load highlights (${esc(hlErr)}). <button class="chip" onclick="hl=null;hlErr='';loadHL();draw()">Retry</button></div>`:!hl?`<div class="note">Loading highlights…</div>`:V.length?`<div class="hs">${V.map((v,i)=>`<div class="card hlc" onclick="playClip(${i})"><img src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b><div style="color:var(--mut);font-size:11px;margin-top:4px">▶ ${esc(v.channel)} · ${ago(v.time)}</div></div>`).join("")}</div>`:`<div class="note">${hl.feedError?"Couldn't reach the video feed ("+esc(hl.feedError)+").":"No clips found in this tab."} <button class="chip" onclick="hl=null;loadHL();draw()">Retry</button></div>`;
+const body=hlErr?`<div class="note">Couldn't load highlights (${esc(hlErr)}). <button class="chip" onclick="hl=null;hlErr='';loadHL();draw()">Retry</button></div>`:!hl?`<div class="note">Loading highlights…</div>`:V.length?`<div class="hs">${V.map((v,i)=>`<div class="card hlc" onclick="playClip(${i})"><img src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt="" loading="lazy"><b>${esc(v.title)}</b><div style="color:var(--mut);font-size:11px;margin-top:4px">▶ ${esc(v.channel)} · ${ago(v.time)}</div></div>`).join("")}</div>`:`<div class="note">${hl.feedError?"YouTube isn't answering right now, so there are no clips to show yet. It keeps trying by itself. <small>("+esc(hl.feedError)+")</small>":"No clips in this tab right now."} <button class="chip" onclick="hl=null;loadHL();draw()">Try now</button></div>`;
 return head+body}
 
 // ===== Favourite team picker =====
@@ -318,8 +322,9 @@ function draw(){const nb=f=>TABS.map(([t,i])=>`<button class="${t==tab?"on":""}"
 $("#favbtn").innerHTML=fav?`${L(fav,20)} <b>${esc(fav.abbr)}</b>`:"★ Pick your team";
 $("#main").innerHTML={Home:homeTab,Scores:gamesSec,Schedule:schedule,Teams:teamsTab,Stats:statsTab,Leaders:leadersTab,News:newsTab}[tab]();
 saveState()}
-const APP_V="v17";
+const APP_V="1.0";
 async function chkVer(){try{const j=await api("/api/version");if(j.v!==APP_V)throw 0}catch(e){$("#vb").innerHTML='<div class="note" style="border-color:var(--live);color:var(--fg);margin-top:10px"><b>Your server is out of date.</b> Close the black window, run <code>node server.js</code> again from the newest nba-hub folder, then press Ctrl+F5 in your browser.</div>'}}
+setInterval(()=>{if(!document.hidden&&tab=="Home")loadHL()},3e5);
 (async()=>{restoreState();draw();chkVer();loadHL();ensureInj();await Promise.allSettled([api("/api/teams").then(r=>teams=r),api("/api/standings").then(r=>stand=r),api("/api/news").then(r=>news=r)]);
 if(fav&&teams.length)fav=teams.find(x=>x.id==fav.id)||null;
 draw();loadFav();initTab();loadGames().then(restoreScroll);loadRecent();

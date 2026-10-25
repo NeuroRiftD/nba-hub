@@ -32,7 +32,7 @@ No dependencies. Needs Node 18+.
 1. Close the black Command Prompt window (this stops the old server).
 2. Extract the new zip into a NEW folder and run `node server.js` from inside it.
 3. In your browser press Ctrl+F5.
-4. Check the small version tag next to NBA HUB at the top (currently v17). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
+4. Check the small version tag next to NBA HUB at the top (currently v1.0). If it is missing, or a red "server is out of date" banner shows, you are still looking at an old copy.
 
 ## Highlights, special events and your team
 - **Video clips** on Home come from YouTube channels' public feeds and play in a popup. There are two tabs: **NBA** (the official NBA channel) and **Others** (every other channel grouped together, newest first, with the channel name on each clip). It ships with House of Highlights, Bleacher Report, NBA on ESPN, Ximo Pierto, FreeDawkins and JxmyHighroller as the Others.
@@ -50,3 +50,9 @@ No dependencies. Needs Node 18+.
 
 ## If the league stats look wrong
 - Open `http://localhost:3000/api/statsdebug` in your browser. It shows exactly what ESPN sends for the league stats (the column names and two sample players). Copy what it shows and send it along, and the stats columns can be matched exactly.
+
+## Version numbers
+- This release is **1.0**. Each update adds one tenth: 1.1, 1.2, and so on. The number shows next to NBA HUB at the top of the page.
+
+## If the highlight clips say YouTube isn't answering
+- YouTube's feeds fail now and then. The app tries the channel's feed, then its uploads-playlist feed, waits and tries again. If it still can't get through, it shows the last clips it saved (in a hidden file called `.highlights-cache.json` next to `server.js`; you can delete it any time) and the page keeps retrying by itself every 30 seconds until clips show up. If a channel never loads, double-check its `channelId` in `highlights.json`.
