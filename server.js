@@ -2,7 +2,7 @@
 // Data comes from ESPN's unofficial public JSON endpoints (no key needed, but unsupported and may change).
 const http = require("http"), fs = require("fs"), path = require("path");
 const E = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const APP_V = "1.0";
+const APP_V = "1.1";
 const cache = new Map();
 // ESPN names a season by the year it ends (2026-27 = 2027). New season starts in October.
 const seasonYear = () => { const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number); return m >= 10 ? y + 1 : y; };
@@ -256,6 +256,122 @@ async function player(id) {
 const NAMEMAP = { gamesPlayed: "GP", avgMinutes: "MIN", avgPoints: "PTS", avgRebounds: "REB", avgAssists: "AST", avgSteals: "STL", avgBlocks: "BLK", avgTurnovers: "TO", avgFouls: "PF",
   fieldGoalPct: "FG%", threePointFieldGoalPct: "3P%", threePointPct: "3P%", freeThrowPct: "FT%", points: "TPTS", rebounds: "TREB", assists: "TAST", steals: "TSTL", blocks: "TBLK" };
 
+// ---- Keeping up with the real games ----
+// ESPN's season averages can run a game or two behind (a 52-point night may not be in the average yet).
+// So we count each team's finished regular-season games ourselves. If ESPN's players are behind, we fold the missing box scores in.
+const canon = s => { s = String(s || "").toUpperCase(); return ({ GSW: "GS", NYK: "NY", NOP: "NO", SAS: "SA", UTA: "UTAH", WAS: "WSH", PHO: "PHX", BRK: "BKN", CHO: "CHA" })[s] || s; };
+const r1 = x => Math.round(x * 10) / 10;
+const RECENT_MS = 72 * 36e5; // only games from the last three days get patched in (anything older that ESPN still lacks is left alone)
+const NOT_REGULAR = /^(All-Star|Preseason|Play-In|NBA Finals|NBA Cup \w)/;
+const BOX_COLS = { MIN: ["MIN", "minutes"], PTS: ["PTS", "points"], REB: ["REB", "rebounds"], AST: ["AST", "assists"], STL: ["STL", "steals"], BLK: ["BLK", "blocks"], TO: ["TO", "turnovers"], PF: ["PF", "fouls"] };
+
+function isFinalRegular(e) {
+  const c = (e.competitions || [])[0];
+  if (!c || status(e.status, c.status).state !== "post") return false;
+  const st = (e.season && +e.season.type) || (e.seasonType && +e.seasonType.id) || 0, tag = tagOf(e).tag;
+  return (st === 2 || (st === 0 && !tag)) && !NOT_REGULAR.test(tag);
+}
+
+// teamId -> that team's finished regular-season games so far, oldest first. null when nothing finished recently (nothing to catch up on).
+async function seasonFinals() {
+  const [ny, nm] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number), months = [];
+  let yy = seasonYear() - 1, mm = 10;
+  while (yy < ny || (yy === ny && mm <= nm)) { months.push([yy, mm]); if (++mm > 12) { mm = 1; yy++; } }
+  const recent = (await Promise.all(months.slice(-2).map(([a, b]) => monthRaw(a, b, 3e5)))).flat();
+  if (!recent.some(e => isFinalRegular(e) && Date.now() - Date.parse(e.date) < RECENT_MS)) return null;
+  const older = (await Promise.all(months.slice(0, -2).map(([a, b]) => monthRaw(a, b, 216e5)))).flat();
+  const byTeam = new Map(), done = new Set();
+  for (const e of [...older, ...recent]) {
+    if (!isFinalRegular(e) || done.has(String(e.id))) continue;
+    done.add(String(e.id));
+    const t = Date.parse(e.date);
+    for (const c of e.competitions[0].competitors) { const id = String(c.team.id); if (!byTeam.has(id)) byTeam.set(id, []); byTeam.get(id).push({ id: String(e.id), t }); }
+  }
+  for (const l of byTeam.values()) l.sort((a, b) => a.t - b.t);
+  return byTeam;
+}
+
+// A finished game's box score: teamId -> (playerId -> that night's numbers), only for players who actually played. A finished game never changes, so it's cached for an hour.
+async function finalBox(id) {
+  const j = await get(`${E}/summary?event=${id}`, 36e5), out = new Map();
+  for (const t of (j.boxscore && j.boxscore.players) || []) {
+    const st = (t.statistics && t.statistics[0]) || {}, n = Math.max((st.labels || []).length, (st.names || []).length, (st.keys || []).length), idx = {};
+    for (const [k, al] of Object.entries(BOX_COLS)) for (let i = 0; i < n && idx[k] == null; i++) if ([(st.labels || [])[i], (st.names || [])[i], (st.keys || [])[i]].some(x => x && al.includes(x))) idx[k] = i;
+    const mine = new Map();
+    for (const a of st.athletes || []) {
+      if (!a.athlete || a.didNotPlay || !a.stats || !a.stats.length) continue;
+      const s = {};
+      for (const k of Object.keys(BOX_COLS)) { const x = idx[k] == null ? NaN : parseFloat(a.stats[idx[k]]); s[k] = isNaN(x) ? 0 : x; }
+      if (Object.values(s).some(x => x > 0)) mine.set(String(a.athlete.id), s);
+    }
+    out.set(String(t.team && t.team.id), mine);
+  }
+  return out;
+}
+
+// Add one more game to a player's per-game line (and his season totals).
+function addGame(v, s) {
+  const g0 = v.GP, g1 = g0 + 1;
+  for (const k of ["PTS", "REB", "AST", "STL", "BLK"]) {
+    if (v[k] == null) continue;
+    const T = (v["T" + k] != null ? v["T" + k] : Math.round(v[k] * g0)) + s[k];
+    v["T" + k] = T; v[k] = r1(T / g1);
+  }
+  for (const k of ["MIN", "TO", "PF"]) if (v[k] != null) v[k] = r1((v[k] * g0 + s[k]) / g1);
+  v.GP = g1;
+}
+
+// Patches the rows in place, then marks who has played enough games (70% of their team's) to be ranked in the per-game lists.
+async function catchUpRows(rows) {
+  const info = { games: 0, teams: 0, players: 0, notes: [] };
+  const tl = await teamsList().catch(() => []), abToId = new Map(tl.map(t => [canon(t.abbr), String(t.id)]));
+  const tidOf = r => r.tid || abToId.get(canon(r.team)) || "";
+  const maxGP = () => { const m = new Map(); for (const r of rows) { const t = tidOf(r); if (t && r.v.GP != null) m.set(t, Math.max(m.get(t) || 0, r.v.GP)); } return m; };
+  const topNow = () => { const m = maxGP(); return rows.filter(r => r.v.PTS != null && r.v.GP >= Math.ceil(0.7 * (m.get(tidOf(r)) || 0) - 1e-9)).sort((a, b) => b.v.PTS - a.v.PTS).slice(0, 5).map(r => `${r.name} (${r.team}) ${r.v.PTS} in ${r.v.GP} GP`); };
+  info.before = topNow();
+  let finals = null;
+  try { finals = await seasonFinals(); } catch (e) { info.notes.push("couldn't read the schedule: " + e.message); }
+  if (finals) {
+    const have = maxGP(), plan = [];
+    for (const [tid, list] of finals) {
+      const mx = have.get(tid);
+      if (!mx) continue;
+      const k = list.length - mx;
+      if (k < 1) continue;
+      if (k > 3) { info.notes.push(`team ${tid}: ESPN is ${k} games behind, too many to patch`); continue; }
+      const lag = list.slice(-k);
+      if (lag.some(g => Date.now() - g.t > RECENT_MS)) { info.notes.push(`team ${tid}: behind by ${k} but the games are old, left alone`); continue; }
+      plan.push({ tid, lag });
+    }
+    const ids = [...new Set(plan.flatMap(p => p.lag.map(g => g.id)))], boxes = new Map(), used = new Set();
+    (await mapLimit(ids, 5, finalBox)).forEach((r, i) => { if (r.status === "fulfilled") boxes.set(ids[i], r.value); else info.notes.push(`box score ${ids[i]}: ${r.reason && r.reason.message}`); });
+    const byId = new Map(rows.map(r => [String(r.id), r]));
+    for (const { tid, lag } of plan) {
+      let any = false;
+      for (const g of lag) {
+        const mine = boxes.get(g.id) && boxes.get(g.id).get(tid);
+        if (!mine || !mine.size) continue;
+        any = true; used.add(g.id);
+        for (const [pid, s] of mine) { const r = byId.get(pid); if (r && r.v.GP != null) { addGame(r.v, s); info.players++; } }
+      }
+      if (any) info.teams++;
+    }
+    info.games = used.size;
+  }
+  markQualified(rows, tidOf);
+  info.after = topNow();
+  return info;
+}
+
+// "Qualified" for the per-game lists = has played at least 70% of his team's games (same idea as the NBA's own rule).
+function markQualified(rows, keyOf) {
+  const mx = new Map();
+  for (const r of rows) { const t = keyOf(r); if (t && r.v.GP != null) mx.set(t, Math.max(mx.get(t) || 0, r.v.GP)); }
+  const league = Math.max(0, ...mx.values());
+  for (const r of rows) r.qc = r.v.GP != null && r.v.GP >= Math.ceil(0.7 * (mx.get(keyOf(r)) || league) - 1e-9);
+}
+
+let lastCatchUp = null;
 async function players() {
   const base = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=50&seasontype=2&season=${seasonYear()}`;
   const sorts = ["offensive.avgPoints", "general.avgRebounds", "offensive.avgAssists", "defensive.avgSteals", "defensive.avgBlocks", "offensive.fieldGoalPct", "offensive.threePointFieldGoalPct", "offensive.freeThrowPct"];
@@ -296,17 +412,22 @@ async function players() {
     if (v.GP > 1) for (const [k, cap] of [["PTS", 60], ["REB", 30], ["AST", 25], ["STL", 8], ["BLK", 8]]) if (v[k] > cap) { const T = v[k]; v[k] = Math.round(T / v.GP * 10) / 10; v["T" + k] = T; }
     // Season totals = per-game average x games played, unless ESPN gave us the real total (can be off by a few because averages are rounded).
     [["PTS", "TPTS"], ["REB", "TREB"], ["AST", "TAST"], ["STL", "TSTL"], ["BLK", "TBLK"]].forEach(([k, t]) => { if (v[t] == null && v[k] != null && v.GP) v[t] = Math.round(v[k] * v.GP); });
-    seen.set(id, { id, name: a.athlete.displayName, team: a.athlete.teamShortName || "", q, v });
+    seen.set(id, { id, name: a.athlete.displayName, team: a.athlete.teamShortName || "", tid: a.athlete.teamId ? String(a.athlete.teamId) : "", q, v });
   }
   const rows = [...seen.values()];
+  let catchUp = { games: 0, teams: 0, players: 0, notes: [] };
+  try { catchUp = await catchUpRows(rows); } catch (e) { catchUp.notes.push("catch-up skipped: " + e.message); markQualified(rows, r => r.tid || canon(r.team)); }
+  lastCatchUp = catchUp;
+  rows.forEach(r => { delete r.tid; });
   const cols = [...PREF, ...order.filter(l => !PREF.includes(l)), "TPTS", "TREB", "TAST", "TSTL", "TBLK"].filter(c => rows.some(r => r.v[c] != null));
-  return { cols, rows, desc, season: seasonLabel(seasonYear()) };
+  return { cols, rows, desc, season: seasonLabel(seasonYear()), catchUp: { games: catchUp.games, players: catchUp.players } };
 }
 
 // Troubleshooting: shows exactly what ESPN sends for league stats (column names and the first two players).
 async function statsDebug() {
   const j = await get(`https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=3&seasontype=2&season=${seasonYear()}&isqualified=false&sort=general.avgRebounds:desc`, 6e4);
-  return { season: seasonYear(), pagination: j.pagination || null, categories: (j.categories || []).map(c => ({ name: c.name, labels: c.labels, names: c.names })), sample: (j.athletes || []).slice(0, 2).map(a => ({ name: a.athlete && a.athlete.displayName, team: a.athlete && a.athlete.teamShortName, categories: a.categories })) };
+  let catchUp = null; try { await players(); catchUp = lastCatchUp; } catch (e) { catchUp = { error: e.message }; }
+  return { season: seasonYear(), catchUp, pagination: j.pagination || null, categories: (j.categories || []).map(c => ({ name: c.name, labels: c.labels, names: c.names })), sample: (j.athletes || []).slice(0, 2).map(a => ({ name: a.athlete && a.athlete.displayName, team: a.athlete && a.athlete.teamShortName, categories: a.categories })) };
 }
 
 async function injuryFeed() {
@@ -314,11 +435,14 @@ async function injuryFeed() {
   return list.filter(x => x.name).sort((x, y) => String(y.date).localeCompare(String(x.date)));
 }
 
+async function monthRaw(y, m, ttl) {
+  const p = n => String(n).padStart(2, "0"), last = new Date(y, m, 0).getDate();
+  return (await get(`${E}/scoreboard?dates=${y}${p(m)}01-${y}${p(m)}${p(last)}&limit=1000`, ttl)).events || [];
+}
 async function month(ym) {
   if (!/^\d{4}-\d{2}$/.test(ym || "")) throw new Error("bad month");
-  const [y, m] = ym.split("-").map(Number), p = n => String(n).padStart(2, "0"), last = new Date(y, m, 0).getDate();
-  const j = await get(`${E}/scoreboard?dates=${y}${p(m)}01-${y}${p(m)}${p(last)}&limit=1000`, 3e5);
-  return (j.events || []).map(e => {
+  const [y, m] = ym.split("-").map(Number);
+  return (await monthRaw(y, m, 3e5)).map(e => {
     const c = e.competitions[0], s = status(e.status, c.status), f = h => { const x = c.competitors.find(k => k.homeAway === h); return { id: x.team.id, abbr: x.team.abbreviation, score: +x.score || 0 }; };
     return { id: e.id, date: e.date, state: s.state, home: f("home"), away: f("away"), ...tagOf(e) };
   });
